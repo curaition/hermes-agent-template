@@ -88,6 +88,16 @@ if [ -z "$(ls -A /data/.hermes/skills 2>/dev/null)" ] && [ -n "${HERMES_SKILLS_T
   printf '%s' "${HERMES_SKILLS_TARGZ}" | base64 -d | tar -xzf - -C /data/.hermes/skills
 fi
 
+# Bootstrap MCP OAuth tokens from env vars.
+# After completing `hermes mcp login <server>` locally, export token files:
+#   HERMES_MCP_LINEAR_JSON=$(cat ~/.hermes/mcp-tokens/linear.json | base64)
+# Written every boot so rotated tokens propagate on redeploy.
+mkdir -p /data/.hermes/mcp-tokens
+if [ -n "${HERMES_MCP_LINEAR_JSON}" ]; then
+  printf '%s' "${HERMES_MCP_LINEAR_JSON}" | base64 -d > /data/.hermes/mcp-tokens/linear.json
+  chmod 600 /data/.hermes/mcp-tokens/linear.json
+fi
+
 # Clear any stale gateway PID file left over from the previous container.
 # `hermes gateway` writes /data/.hermes/gateway.pid on start but does not
 # remove it on SIGTERM. Since /data is a persistent volume, the file
