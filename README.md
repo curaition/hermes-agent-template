@@ -70,6 +70,46 @@ Message your Telegram bot. If you're a new user, a pairing request will appear i
 
 All other configuration (LLM provider, model, channels, tools) is managed through the admin dashboard.
 
+## Bootstrapping Credentials
+
+When migrating a local Hermes setup to Railway, you can seed credentials, memories, and skills via environment variables. Each is written **only once** — if the target file already exists on the persistent volume, it won't be overwritten on redeploy.
+
+### Generate the env vars (run on your local Mac)
+
+```bash
+# 1. Hermes auth.json (xAI / SuperGrok OAuth tokens)
+#    Already supported — just set the raw JSON as the value.
+export HERMES_AUTH_JSON_BOOTSTRAP=$(cat ~/.hermes/auth.json)
+
+# 2. Google OAuth credentials (base64-encoded)
+export HERMES_GOOGLE_TOKEN_JSON=$(cat ~/.hermes/google_token.json | base64)
+export HERMES_GOOGLE_CLIENT_SECRET_JSON=$(cat ~/.hermes/google_client_secret.json | base64)
+
+# 3. GBrain bearer token (plain text)
+export HERMES_GBRAIN_TOKEN=$(cat ~/.config/gbrain/token)
+
+# 4. Hermes memories (base64-encoded)
+export HERMES_MEMORY_MD=$(cat ~/.hermes/memories/MEMORY.md | base64)
+export HERMES_USER_MD=$(cat ~/.hermes/memories/USER.md | base64)
+
+# 5. Custom skills (base64-encoded tar.gz archive)
+export HERMES_SKILLS_TARGZ=$(tar -czf - -C ~/.hermes/skills . | base64)
+```
+
+Then set each as a **Railway service variable** on the Hermes Agent service (Settings → Variables, or `railway variables set`).
+
+| Variable | Format | Written to | Overwrite? |
+|----------|--------|-----------|------------|
+| `HERMES_AUTH_JSON_BOOTSTRAP` | Raw JSON | `/data/.hermes/auth.json` | Once (skip if exists) |
+| `HERMES_GOOGLE_TOKEN_JSON` | Base64 | `/data/.hermes/google_token.json` | Once (skip if exists) |
+| `HERMES_GOOGLE_CLIENT_SECRET_JSON` | Base64 | `/data/.hermes/google_client_secret.json` | Once (skip if exists) |
+| `HERMES_GBRAIN_TOKEN` | Plain text | `/data/.config/gbrain/token` + `/data/.hermes/.gbrain_token` | Every boot |
+| `HERMES_MEMORY_MD` | Base64 | `/data/.hermes/memories/MEMORY.md` | Once (skip if exists) |
+| `HERMES_USER_MD` | Base64 | `/data/.hermes/memories/USER.md` | Once (skip if exists) |
+| `HERMES_SKILLS_TARGZ` | Base64 tar.gz | `/data/.hermes/skills/` | Once (skip if dir non-empty) |
+
+> **Tip:** To force re-seeding a file, delete it from the Railway volume (e.g. via `railway shell` → `rm /data/.hermes/google_token.json`) and redeploy.
+
 ## Supported Providers
 
 OpenRouter, DeepSeek, DashScope, GLM / Z.AI, Kimi, MiniMax, HuggingFace

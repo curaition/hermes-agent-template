@@ -39,6 +39,55 @@ if [ ! -f /data/.hermes/auth.json ] && [ -n "${HERMES_AUTH_JSON_BOOTSTRAP}" ]; t
   chmod 600 /data/.hermes/auth.json
 fi
 
+# Bootstrap Google OAuth credentials from env vars.
+# Export your local credentials:
+#   HERMES_GOOGLE_TOKEN_JSON=$(cat ~/.hermes/google_token.json | base64)
+#   HERMES_GOOGLE_CLIENT_SECRET_JSON=$(cat ~/.hermes/google_client_secret.json | base64)
+# Set these as Railway env vars on the Hermes Agent service.
+# Written only once — if the file exists on the volume, it won't be overwritten.
+if [ ! -f /data/.hermes/google_token.json ] && [ -n "${HERMES_GOOGLE_TOKEN_JSON}" ]; then
+  printf '%s' "${HERMES_GOOGLE_TOKEN_JSON}" | base64 -d > /data/.hermes/google_token.json
+  chmod 600 /data/.hermes/google_token.json
+fi
+if [ ! -f /data/.hermes/google_client_secret.json ] && [ -n "${HERMES_GOOGLE_CLIENT_SECRET_JSON}" ]; then
+  printf '%s' "${HERMES_GOOGLE_CLIENT_SECRET_JSON}" | base64 -d > /data/.hermes/google_client_secret.json
+  chmod 600 /data/.hermes/google_client_secret.json
+fi
+
+# Bootstrap GBrain bearer token from env var.
+# Get your token from ~/.config/gbrain/token on your local machine.
+# Set HERMES_GBRAIN_TOKEN as a Railway env var.
+# Stored in two locations for compatibility with different script patterns.
+if [ -n "${HERMES_GBRAIN_TOKEN}" ]; then
+  mkdir -p /data/.config/gbrain
+  printf '%s' "${HERMES_GBRAIN_TOKEN}" > /data/.config/gbrain/token
+  chmod 600 /data/.config/gbrain/token
+  # Also write to .hermes home for scripts that use HERMES_HOME
+  printf '%s' "${HERMES_GBRAIN_TOKEN}" > /data/.hermes/.gbrain_token
+  chmod 600 /data/.hermes/.gbrain_token
+fi
+
+# Bootstrap Hermes memories from env vars.
+# Export your local memories:
+#   HERMES_MEMORY_MD=$(cat ~/.hermes/memories/MEMORY.md | base64)
+#   HERMES_USER_MD=$(cat ~/.hermes/memories/USER.md | base64)
+# Written only once — manual edits made in Railway won't be overwritten on redeploy.
+if [ ! -f /data/.hermes/memories/MEMORY.md ] && [ -n "${HERMES_MEMORY_MD}" ]; then
+  printf '%s' "${HERMES_MEMORY_MD}" | base64 -d > /data/.hermes/memories/MEMORY.md
+fi
+if [ ! -f /data/.hermes/memories/USER.md ] && [ -n "${HERMES_USER_MD}" ]; then
+  printf '%s' "${HERMES_USER_MD}" | base64 -d > /data/.hermes/memories/USER.md
+fi
+
+# Bootstrap custom skills from env var (base64-encoded tar.gz).
+# Export your local skills:
+#   HERMES_SKILLS_TARGZ=$(tar -czf - -C ~/.hermes/skills . | base64)
+# Set HERMES_SKILLS_TARGZ as a Railway env var.
+# Only runs if skills directory is empty (no existing skills).
+if [ -z "$(ls -A /data/.hermes/skills 2>/dev/null)" ] && [ -n "${HERMES_SKILLS_TARGZ}" ]; then
+  printf '%s' "${HERMES_SKILLS_TARGZ}" | base64 -d | tar -xzf - -C /data/.hermes/skills
+fi
+
 # Clear any stale gateway PID file left over from the previous container.
 # `hermes gateway` writes /data/.hermes/gateway.pid on start but does not
 # remove it on SIGTERM. Since /data is a persistent volume, the file
