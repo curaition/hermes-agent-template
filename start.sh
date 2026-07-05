@@ -113,4 +113,15 @@ rm -f /data/.hermes/gateway.pid
 # This is a safety net — if the var is already inherited, export is a no-op.
 export GH_TOKEN
 
+# Also write GH_TOKEN to .hermes/.env so all hermes-spawned terminal sessions,
+# cron jobs, and delegations inherit it via the env file (more reliable than
+# shell export alone, which does not propagate to ephemeral bash snapshots).
+if [ -n "${GH_TOKEN}" ]; then
+  if grep -q "^GH_TOKEN=" /data/.hermes/.env 2>/dev/null; then
+    sed -i "s|^GH_TOKEN=.*|GH_TOKEN=${GH_TOKEN}|" /data/.hermes/.env
+  else
+    echo "GH_TOKEN=${GH_TOKEN}" >> /data/.hermes/.env
+  fi
+fi
+
 exec python /app/server.py
