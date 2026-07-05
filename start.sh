@@ -107,4 +107,10 @@ fi
 # container), so removing the file unconditionally is safe.
 rm -f /data/.hermes/gateway.pid
 
+# Explicitly export GH_TOKEN so all hermes-spawned terminal sessions,
+# delegations, and cron jobs reliably inherit it. Railway sets this as an
+# env var on PID 1, but it doesn't always propagate to shell child processes.
+# This is a safety net — if the var is already inherited, export is a no-op.
+export GH_TOKEN
+
 exec python /app/server.py
