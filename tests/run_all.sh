@@ -10,8 +10,8 @@ fi
 pytest -q tests/
 
 for t in tests/test_*.sh; do
-  out="$(bash "$t")"
-  printf '%s\n' "$out" | grep -q '^PASS ' || { echo "NO PASS LINE: $t"; printf '%s\n' "$out"; exit 1; }
+  if ! out="$(bash "$t" 2>&1)"; then echo "FAILED (exit): $t"; printf '%s\n' "$out"; exit 1; fi
+  printf '%s\n' "$out" | grep -q '^PASS ' || { echo "FAILED (no PASS line): $t"; printf '%s\n' "$out"; exit 1; }
 done
 
 bash -n start.sh bootstrap/*.sh ops/hindsight/*.sh ops/hermes/*.sh tests/*.sh tests/fakebin/curl
