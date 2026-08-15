@@ -154,7 +154,7 @@ plugin reads `HINDSIGHT_API_KEY` from env for the bearer).
 Also: `hindsight-client>=0.6.1` in `requirements.txt` (`_MIN_CLIENT_VERSION` in
 the plugin; the Dockerfile's `[hindsight]` extra already installs the client — this pins the floor).
 
-`railway.toml`: `watchPatterns = ["/**", "!ops/**", "!**/*.md"]` (D2).
+`railway.toml`: `watchPatterns = ["**", "!/ops/**", "!/**/*.md"]` (D2).
 
 `ops/GUARDRAILS.md` = current `HERMES_GUARDRAILS.md`, set as `HERMES_USER_MD`.
 
