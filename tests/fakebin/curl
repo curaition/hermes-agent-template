@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Fake curl for script tests. Logs the full argv to $FAKE_CURL_LOG (one line per call).
+# Body: looks for a file in $FAKE_CURL_RESPONSES whose name is the URL with
+# non-alphanumerics replaced by '_' (query string included), e.g.
+#   https://api.hetzner.cloud/v1/servers?name=box  ->  https___api_hetzner_cloud_v1_servers_name_box
+# If a file "<slug>.<METHOD>" exists it wins over "<slug>". Missing file → '{}' and exit 0.
+# Honors: -o FILE (writes body there), -w FMT (prints 200 in place of %{http_code}), --fail-with-body (no-op).
+set -euo pipefail
+url=""; method="GET"; out=""; wfmt=""; data=""
+args=("$@")
+i=0
+while [ $i -lt ${#args[@]} ]; do
+  a="${args[$i]}"
+  case "$a" in
+    -X) i=$((i+1)); method="${args[$i]}";;
+    -o) i=$((i+1)); out="${args[$i]}";;
+    -w) i=$((i+1)); wfmt="${args[$i]}";;
+    -d|--data|--data-binary|--data-raw) i=$((i+1)); data="${args[$i]}";;
+    -H|--header) i=$((i+1));;
+    -s|-S|-sS|-f|-L|--fail|--fail-with-body|--silent|--show-error) ;;
+    http*) url="$a";;
+    *) ;;
+  esac
+  i=$((i+1))
+done
+printf '%s %s %s\n' "$method" "$url" "$data" >> "${FAKE_CURL_LOG:-/dev/null}"
+slug="$(printf '%s' "$url" | tr -c 'A-Za-z0-9\n' '_')"
+body='{}'
+if [ -n "${FAKE_CURL_RESPONSES:-}" ]; then
+  if [ -f "$FAKE_CURL_RESPONSES/$slug.$method" ]; then body="$(cat "$FAKE_CURL_RESPONSES/$slug.$method")"
+  elif [ -f "$FAKE_CURL_RESPONSES/$slug" ]; then body="$(cat "$FAKE_CURL_RESPONSES/$slug")"; fi
+fi
+if [ -n "$out" ]; then printf '%s' "$body" > "$out"; else printf '%s' "$body"; fi
+[ -n "$wfmt" ] && printf '%s' "${wfmt//%\{http_code\}/${FAKE_CURL_STATUS:-200}}"
+exit 0
