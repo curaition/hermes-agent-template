@@ -80,6 +80,8 @@ RUN mkdir -p /data/.hermes
 COPY server.py /app/server.py
 COPY templates/ /app/templates/
 COPY start.sh /app/start.sh
+COPY bootstrap/ /app/bootstrap/
+RUN chmod +x /app/bootstrap/*.sh /app/bootstrap/*.py
 RUN chmod +x /app/start.sh
 
 ENV HOME=/data

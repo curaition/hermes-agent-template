@@ -98,6 +98,14 @@ if [ -n "${HERMES_MCP_LINEAR_JSON}" ]; then
   chmod 600 /data/.hermes/mcp-tokens/linear.json
 fi
 
+# Two-tier memory wiring (Hindsight plugin config, memory.provider, declarative
+# mcp_servers allowlists). See ops/docs/DESIGN.md §4.5. Env is the source of
+# truth and is re-applied every boot. Fails the boot loudly on malformed input
+# rather than starting a gateway with half-applied wiring.
+# shellcheck source=bootstrap/hindsight_wiring.sh
+source /app/bootstrap/hindsight_wiring.sh
+materialize_hindsight_wiring /data
+
 # Clear any stale gateway PID file left over from the previous container.
 # `hermes gateway` writes /data/.hermes/gateway.pid on start but does not
 # remove it on SIGTERM. Since /data is a persistent volume, the file
