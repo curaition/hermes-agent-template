@@ -57,6 +57,8 @@ def main(argv=None) -> int:
     changes = []
     if a.memory_provider is not None:
         mem = cfg.setdefault("memory", {})
+        if mem is None:
+            mem = cfg["memory"] = {}
         if mem.get("provider") != a.memory_provider:
             mem["provider"] = a.memory_provider
             changes.append(f"memory.provider={a.memory_provider}")

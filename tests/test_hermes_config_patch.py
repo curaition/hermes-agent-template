@@ -92,3 +92,13 @@ def test_wrapped_base64_is_accepted(tmp_path):
     assert r.returncode == 0, r.stderr
     d = yaml.safe_load(cfg.read_text())
     assert d["mcp_servers"]["linear"]["url"] == "https://mcp.linear.app/mcp"
+
+def test_null_memory_section_is_guarded(tmp_path):
+    # memory: present but null (YAML "memory:\n" with no mapping value) must
+    # not raise AttributeError on mem.get(...).
+    cfg = tmp_path / "config.yaml"; cfg.write_text("memory:\nmodel: foo\n")
+    r = run(cfg, "--memory-provider", "hindsight")
+    assert r.returncode == 0, r.stderr
+    d = yaml.safe_load(cfg.read_text())
+    assert d["memory"]["provider"] == "hindsight"
+    assert d["model"] == "foo"
