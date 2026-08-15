@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Minimal fake of Hindsight's MCP surface for bootstrap tests. Usage: fake_hindsight_server.py PORT"""
-import json, sys
+import json, os, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 STATE = {"banks": {}}
+# When set, 200 JSON-RPC responses (tools/list, tools/call) are emitted as SSE instead of plain
+# JSON, so tests can exercise bootstrap_hindsight.sh's _unwrap SSE branch end-to-end.
+SSE = os.environ.get("FAKE_HINDSIGHT_SSE") == "1"
 ALL_TOOLS = ["create_bank","get_bank","update_bank","list_directives","create_directive","delete_directive",
              "list_mental_models","create_mental_model","delete_mental_model","retain","recall","reflect",
              "list_memories","get_memory","get_mental_model","list_tags","list_documents","get_document",
@@ -19,6 +22,14 @@ class H(BaseHTTPRequestHandler):
         body = json.dumps(obj).encode()
         self.send_response(code); self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+    def _send_rpc(self, code, obj):
+        # tools/list and tools/call 200 JSON-RPC responses only; 401/404/__state stay plain JSON.
+        if SSE and code == 200:
+            payload = ("event: message\ndata: " + json.dumps(obj) + "\n\n").encode()
+            self.send_response(code); self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Content-Length", str(len(payload))); self.end_headers(); self.wfile.write(payload)
+            return
+        self._send(code, obj)
     def do_GET(self):
         if self.path == "/__state": return self._send(200, STATE)
         self._send(404, {})
@@ -37,12 +48,12 @@ class H(BaseHTTPRequestHandler):
         tools = allowed if allowed else ALL_TOOLS
         rid = req.get("id", 1)
         if req.get("method") == "tools/list":
-            return self._send(200, {"jsonrpc":"2.0","id":rid,"result":{"tools":[{"name":t} for t in tools]}})
+            return self._send_rpc(200, {"jsonrpc":"2.0","id":rid,"result":{"tools":[{"name":t} for t in tools]}})
         if req.get("method") != "tools/call": return self._send(400, {"error":"bad method"})
         name = req["params"]["name"]; args = req["params"].get("arguments", {})
         if name not in tools:
-            return self._send(200, {"jsonrpc":"2.0","id":rid,"error":{"code":-32601,"message":f"tool {name} not enabled"}})
-        def ok(obj): return self._send(200, {"jsonrpc":"2.0","id":rid,"result":{"content":[{"type":"text","text":json.dumps(obj)}]}})
+            return self._send_rpc(200, {"jsonrpc":"2.0","id":rid,"error":{"code":-32601,"message":f"tool {name} not enabled"}})
+        def ok(obj): return self._send_rpc(200, {"jsonrpc":"2.0","id":rid,"result":{"content":[{"type":"text","text":json.dumps(obj)}]}})
         if name == "create_bank":
             b = STATE["banks"].setdefault(args["bank_id"], {"bank_id":args["bank_id"],"config":{},"directives":[],"mental_models":[]})
             b["mission"] = args.get("mission", b.get("mission")); return ok({"bank_id": args["bank_id"]})

@@ -4,7 +4,8 @@
 # - Aborts unless an UNauthenticated tools/list returns 401 (auth gate first).
 # - Idempotent: create_bank is get-or-create; directives/mental models are skipped if present.
 # - --lockdown (run LAST, once verified in the UI): sets mcp_enabled_tools to the read/write-only
-#   allowlist. After that this script's seeding calls are refused by design; admin edits go via REST:
+#   allowlist, then reads tools/list back and verifies the live surface matches exactly. After
+#   that this script's seeding calls are refused by design; admin edits go via REST:
 #   PATCH $HINDSIGHT_URL/v1/default/banks/hermes-agent/config  {"updates": {...}}  (bearer auth).
 set -euo pipefail
 : "${HINDSIGHT_URL:?set HINDSIGHT_URL}"; : "${HINDSIGHT_TENANT_API_KEY:?set HINDSIGHT_TENANT_API_KEY}"
@@ -12,10 +13,10 @@ BANK="hermes-agent"; LOCKDOWN=0
 [ "${1:-}" = "--lockdown" ] && LOCKDOWN=1
 URL="${HINDSIGHT_URL%/}"
 
-_post() { # _post PATH JSON [auth]
+_post() { # _post PATH JSON [auth] → response body, then a trailing line with the HTTP status
   local path="$1" body="$2" auth="${3:-1}"; local -a hdr=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream')
   [ "$auth" = 1 ] && hdr+=(-H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}")
-  curl -sS -X POST "${URL}${path}" "${hdr[@]}" -d "$body"
+  curl -sS -X POST "${URL}${path}" "${hdr[@]}" -d "$body" -w '\n%{http_code}'
 }
 _status() { local path="$1" body="$2" auth="${3:-1}"; local -a hdr=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream')
   [ "$auth" = 1 ] && hdr+=(-H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}")
@@ -24,12 +25,23 @@ _unwrap() { # stdin: JSON or SSE → the JSON-RPC message
   local raw; raw="$(cat)"
   if printf '%s' "$raw" | grep -q '^data:'; then printf '%s' "$raw" | sed -n 's/^data: *//p' | tail -1; else printf '%s' "$raw"; fi
 }
-mcp() { # mcp PATH TOOL JSON-ARGS → prints tool result text (JSON); non-zero on JSON-RPC error
-  local resp; resp="$(_post "$1" "$(jq -cn --arg t "$2" --argjson a "$3" '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:$t,arguments:$a}}')" | _unwrap)"
+mcp() { # mcp PATH TOOL JSON-ARGS → prints tool result text (JSON); non-zero on HTTP or JSON-RPC error
+  local raw code body resp
+  raw="$(_post "$1" "$(jq -cn --arg t "$2" --argjson a "$3" '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:$t,arguments:$a}}')")"
+  code="${raw##*$'\n'}"
+  body="${raw%$'\n'*}"
+  case "$code" in
+    2??) ;;
+    *) echo "HTTP $code calling $2: $body" >&2; return 1 ;;
+  esac
+  resp="$(printf '%s' "$body" | _unwrap)"
   if jq -e '.error' <<<"$resp" >/dev/null 2>&1; then echo "MCP error calling $2: $(jq -c '.error' <<<"$resp")" >&2; return 1; fi
   jq -r '.result.content[0].text // (.result|tostring)' <<<"$resp"
 }
 LIST='{"jsonrpc":"2.0","method":"tools/list","id":1}'
+# Read/write-only tool surface applied by --lockdown. Defined once; used for both the update and
+# the post-update read-back verification below, so they cannot drift apart.
+LOCKDOWN_TOOLS='["retain","sync_retain","recall","reflect","list_memories","get_memory","list_mental_models","get_mental_model","list_directives","list_tags","get_bank","list_documents","get_document","list_operations","get_operation"]'
 
 echo "== auth gate =="
 c="$(_status /mcp/ "$LIST" 0)"; [ "$c" = 401 ] || { echo "UNauthenticated tools/list returned $c, expected 401 — auth is NOT enforced; refusing to continue" >&2; exit 1; }
@@ -69,7 +81,19 @@ add_model proposal-outcomes "Proposal Outcomes" "Which proposals were implemente
 
 if [ "$LOCKDOWN" = 1 ]; then
   echo "== LOCKDOWN: restricting the bank's MCP tool surface (Hermes accrues memory; humans manage the bank) =="
-  mcp "/mcp/${BANK}/" update_bank '{"config_updates":{"mcp_enabled_tools":["retain","sync_retain","recall","reflect","list_memories","get_memory","list_mental_models","get_mental_model","list_directives","list_tags","get_bank","list_documents","get_document","list_operations","get_operation"]}}' >/dev/null
+  mcp "/mcp/${BANK}/" update_bank "$(jq -cn --argjson t "$LOCKDOWN_TOOLS" '{config_updates:{mcp_enabled_tools:$t}}')" >/dev/null
+
+  echo "== lockdown read-back =="
+  raw="$(_post "/mcp/${BANK}/" "$LIST")"
+  code="${raw##*$'\n'}"; body="${raw%$'\n'*}"
+  [ "$code" = 200 ] || { echo "lockdown read-back: authenticated tools/list returned HTTP $code" >&2; exit 1; }
+  got="$(printf '%s' "$body" | _unwrap | jq -r '.result.tools[].name' | sort)"
+  want="$(jq -r '.[]' <<<"$LOCKDOWN_TOOLS" | sort)"
+  if [ "$got" != "$want" ]; then
+    echo "LOCKDOWN VERIFY FAILED: tool surface = [$(printf '%s' "$got" | tr '\n' ',' | sed 's/,$//')] (want exactly the allowlist)" >&2
+    exit 1
+  fi
+  echo "lockdown verified: 15 tools"
   echo "done. Further admin via REST: PATCH ${URL}/v1/default/banks/${BANK}/config"
 else
   echo "seeded (no lockdown). Verify in the control-plane UI (SSH tunnel to :9999), then re-run with --lockdown."
