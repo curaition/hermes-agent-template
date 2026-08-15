@@ -56,7 +56,7 @@ Railway "peaceful-rejoicing" (europe-west4)
 
 Hetzner box (2c/3.7GB, Ubuntu 26.04, Coolify)  — Hetzner Cloud Firewall: 22/80/443 only
 └── Coolify project "hermes-memory" → Docker Compose resource "hindsight"
-      ├── db        pgvector/pgvector:pg18   (volume pg_data; daily backup → GCS S3-interop)
+      ├── db        pgvector/pgvector:pg17   (volume pg_data; daily backup → GCS S3-interop)
       └── hindsight ghcr.io/vectorize-io/hindsight:<pinned>  :8888 API/MCP behind Coolify proxy (TLS)
                     :9999 control-plane UI NOT published (SSH tunnel only)
                     auth: ApiKeyTenantExtension; LLM gemini; embeddings openai

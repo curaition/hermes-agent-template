@@ -4,7 +4,7 @@ Design: `docs/DESIGN.md`. Runbook (phase order, secrets manifest, verification):
 
 | Path | Purpose |
 |---|---|
-| `GUARDRAILS.md` | Content of `HERMES_USER_MD` — Hermes's standing instructions as issue scout |
+| `GUARDRAILS.md` | Content of `HERMES_USER_MD` — Hermes's standing instructions as issue scout. **Write-once:** `start.sh` only seeds `/data/.hermes/memories/USER.md` from this env var if the file doesn't already exist — see RUNBOOK §6.3 to push a change |
 | `hindsight/docker-compose.yaml` | Hindsight app container (DB is a separate Coolify database resource) |
 | `hindsight/hetzner_firewall.sh` | Hetzner Cloud Firewall: inbound 22/80/443 only, idempotent |
 | `hindsight/box_prep.sh` | On-box: 2G swap (run as root over SSH) |

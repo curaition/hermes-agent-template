@@ -41,7 +41,7 @@ Hetzner box (Coolify)                        ← long-term home for everything
 | 4 | Auth gate | `verify.sh` (auth lines) | 401/200 — HARD GATE |
 | 5 | Bootstrap bank | `bootstrap_hindsight.sh` → tunnel check → `--lockdown` | `verify.sh` all PASS (models may WARN) |
 | 6 | Backups | `coolify_backup.sh` + one manual restore | dump in bucket AND restore proven |
-| 7 | Hermes wiring | Task 17 | `hermes memory status` shows hindsight; round-trip fact |
+| 7 | Hermes wiring | set Railway env per `ops/hermes/env.example` (`HINDSIGHT_API_URL`, `HINDSIGHT_API_KEY`, `HERMES_MEMORY_PROVIDER=hindsight`, `HERMES_HINDSIGHT_CONFIG_JSON`, `HERMES_MCP_SERVERS_YAML`, `HERMES_USER_MD`, read-only `GH_TOKEN`); redeploy | `hermes memory status` shows hindsight; round-trip fact |
 | 8 | Cron | `cron_install.sh` + manual run | compliant test issue + Telegram summary |
 | 9 | Full checklist | spec §8 | all boxes |
 | 10 | Observation | 2 weeks Mon/Wed/Fri | judged before scaling |
@@ -160,11 +160,10 @@ supports that via interoperability mode:
 
 ## 4. Hindsight on Coolify (Hetzner)
 
-Coolify → Project → **+ New Resource → Docker Compose (empty)**:
-
 Compose is `ops/hindsight/docker-compose.yaml` (app only). Postgres is a
 Coolify **database resource** `hindsight-db` (`pgvector/pgvector:pg17`) so
 `POST /databases/{uuid}/backups` applies; `coolify_apply.sh` creates both
+resources (project → database → Docker Compose service) via the Coolify API
 and connects the stack to the predefined network.
 
 Secrets (Coolify env, marked secret): `HINDSIGHT_DB_PASSWORD` and
@@ -175,7 +174,7 @@ rejected, fall back to `gemini-2.5-flash`.
 
 Networking:
 - Attach a Coolify domain with HTTPS to the `hindsight` service → port **8888**,
-  e.g. `https://hindsight.<yourdomain>`. The API, SDK, and MCP endpoint
+  e.g. `https://hindsight.<zone>`. The API, SDK, and MCP endpoint
   (`/mcp/{bank_id}/`, enabled by default) all live on 8888.
 - Do NOT expose the control-plane UI (**9999**) — no documented auth of its own.
   Use it via SSH tunnel: `ssh -L 9999:<hindsight-container-ip>:9999 <hetzner>`
@@ -218,46 +217,50 @@ instead of re-synthesizing its history nightly.
 
 ## 6. Hermes wiring (Railway side)
 
+**Env is the source of truth and is re-applied every boot.** `start.sh` sources
+`bootstrap/hindsight_wiring.sh` and calls `materialize_hindsight_wiring /data`
+unconditionally on every start, which (re)writes `/data/.hermes/hindsight/config.json`
+and patches `/data/.hermes/config.yaml`'s `memory.provider` and `mcp_servers.*`
+from the env vars below. **Any manual `hermes memory setup` wizard run or
+hand-run `hermes mcp configure gbrain` edit on the box is overwritten on the
+next boot** — treat those CLI tools as read-only inspection here, not as the
+way to change wiring. To change wiring, change the env var and redeploy.
+
 ### 6.1 Hindsight (agent-memory tier)
 
-Native plugin, pointed cross-cloud (config lives in `/data/.hermes/hindsight/config.json`
-via the fork's env materialization — let `hermes memory setup` write the file,
-then adjust):
+Generate the config from the committed template (substituting the real zone)
+and set it, plus the URL/key/provider vars, on the Railway service:
 
-```json
-{
-  "mode": "local_external",
-  "api_url": "https://hindsight.<yourdomain>",
-  "bank_id": "hermes-agent",
-  "memory_mode": "hybrid",
-  "auto_recall": true,
-  "auto_retain": true,
-  "recall_budget": "mid"
-}
+```bash
+HERMES_HINDSIGHT_CONFIG_JSON=$(sed 's/<zone>/curaition.xyz/' ops/hermes/hindsight.config.json | base64 | tr -d '\n')
+railway variables --service "Hermes Agent" --set HERMES_HINDSIGHT_CONFIG_JSON="$HERMES_HINDSIGHT_CONFIG_JSON"
+railway variables --service "Hermes Agent" --set HINDSIGHT_API_URL=https://hindsight.curaition.xyz
+railway variables --service "Hermes Agent" --set HINDSIGHT_API_KEY=<tenant key>
+railway variables --service "Hermes Agent" --set HERMES_MEMORY_PROVIDER=hindsight
 ```
 
-plus `HINDSIGHT_API_KEY=<tenant key>` in Hermes's env so the plugin sends the
-bearer. `hybrid` + auto_recall/auto_retain is the point of this tier: Hermes's
-experiences accrue without tool-call discipline, and recalled context injects
-every turn. (If the plugin's key names differ in the installed version, the
-wizard's generated file is canonical.) Latency note: Hetzner (DE) ↔ Railway
-europe-west4 (NL) is single-digit ms — auto_recall per turn is fine.
+`ops/hermes/hindsight.config.json` bakes in `mode: local_external`,
+`bank_id: hermes-agent`, `memory_mode: hybrid`, `auto_recall: true`,
+`auto_retain: true`, `recall_budget: mid`. `hybrid` + auto_recall/auto_retain
+is the point of this tier: Hermes's experiences accrue without tool-call
+discipline, and recalled context injects every turn. Latency note: Hetzner
+(DE) ↔ Railway europe-west4 (NL) is single-digit ms — auto_recall per turn is
+fine.
 
 ### 6.2 GBrain (knowledge tier)
 
-As already wired, over private networking — keep the URL in an env var for the
-future port:
+Also env-driven, via the same materialization — the allowlist lives in
+`ops/hermes/mcp_servers.yaml` (committed) and ships to Railway as one base64
+env var:
 
-```yaml
-gbrain:
-  url: "http://gbrain.railway.internal:3131/mcp"   # confirm GBrain's MCP path
-  headers:
-    Authorization: "Bearer ${HERMES_GBRAIN_TOKEN}"
+```bash
+HERMES_MCP_SERVERS_YAML=$(base64 < ops/hermes/mcp_servers.yaml | tr -d '\n')
+railway variables --service "Hermes Agent" --set HERMES_MCP_SERVERS_YAML="$HERMES_MCP_SERVERS_YAML"
 ```
 
-Trim the ~90 tools at config level (`hermes mcp configure gbrain`). The trim
-removes ONLY destructive/admin surface — **Hermes keeps full write access for
-adding knowledge**:
+`ops/hermes/mcp_servers.yaml` trims the ~90 available GBrain tools down to a
+named allowlist. The trim removes ONLY destructive/admin surface — **Hermes
+keeps full write access for adding knowledge**:
 
 - Read/recall: `query`, `search`, `recall`, `get_page`, `get_chunks`,
   `get_backlinks`, `get_links`, `get_timeline`, `volunteer_context`
@@ -288,10 +291,25 @@ Unchanged from the previous iteration:
   only, **Contents: Read + Metadata: Read** — rotate down if it has write.
   Clone to `/data/work/curaition`; each run starts
   `git fetch origin && git reset --hard origin/staging`; issues cite the SHA.
-- **Guardrails:** `HERMES_GUARDRAILS.md` is the content of `HERMES_USER_MD`.
-- **Cron:** nightly 02:00 UTC scout (≤3 issues/run, dedupe first), weekly Sun
-  hygiene pass; run summaries delivered to Telegram. Scale only after ~2 weeks
-  of judging issue quality — triage attention is the binding resource.
+- **Guardrails:** `ops/GUARDRAILS.md` is the content of `HERMES_USER_MD`
+  (`HERMES_USER_MD=$(base64 < ops/GUARDRAILS.md | tr -d '\n')`, set via
+  `railway variables --service "Hermes Agent" --set HERMES_USER_MD=...`).
+  ⚠️ **Write-once, not env-source-of-truth like §6.1/§6.2:** `start.sh` only
+  writes `/data/.hermes/memories/USER.md` from `HERMES_USER_MD` the first time
+  — `if [ ! -f /data/.hermes/memories/USER.md ] ...` — and never touches it
+  again on subsequent boots. This is deliberate: Hermes's own memory tooling
+  may write to `USER.md` at runtime, and an every-boot overwrite would erase
+  that. **To push a GUARDRAILS change:** update the `HERMES_USER_MD` env var,
+  then delete the on-volume file so the next boot reseeds it —
+  `ssh railway-hermes-agent 'rm /data/.hermes/memories/USER.md'` — and redeploy
+  (or copy the new content directly onto `/data/.hermes/memories/USER.md`).
+  Editing the Railway env var alone does **not** take effect.
+- **Cron:** `ops/hermes/cron_install.sh` creates both jobs and leaves them
+  PAUSED — scout `0 2 * * 1,3,5`, hygiene `0 3 * * 0`, both
+  `--deliver telegram --workdir /data/work/curaition`. Run a manual pass
+  (`hermes cron run <id>`) and judge the output before enabling the schedule
+  with `hermes cron resume <id>`. Scale only after ~2 weeks of judging issue
+  quality — triage attention is the binding resource.
 
 ## 7. Verification checklist
 
