@@ -13,4 +13,5 @@ openai_anth_ref_only/
 ref-openai-auth/
 OVERVIEW.md
 hermes-git/
-for-me.md.venv/
+for-me.md
+.venv/
