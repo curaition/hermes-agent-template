@@ -1,6 +1,8 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+# Docs/ops-only pushes must not restart the gateway (spec D2).
+watchPatterns = ["/**", "!/ops/**", "!/**/*.md"]
 
 [deploy]
 startCommand = "/app/start.sh"
