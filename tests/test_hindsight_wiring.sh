@@ -13,11 +13,14 @@ export HINDSIGHT_API_KEY="k1" HINDSIGHT_API_URL="https://hindsight.example" HERM
 export HERMES_MCP_SERVERS_YAML
 HERMES_MCP_SERVERS_YAML="$(printf 'gbrain:\n  url: http://gbrain.railway.internal:3131/mcp\n  tools:\n    include: [query]\n' | base64)"
 
+fail() { echo "FAIL: $*" >&2; exit 1; }
+
 # shellcheck source=../bootstrap/hindsight_wiring.sh
 source "$here/../bootstrap/hindsight_wiring.sh"
+before="$(umask)"
 materialize_hindsight_wiring "$root"
+[ "$(umask)" = "$before" ] || fail "umask leaked from materialize_hindsight_wiring"
 
-fail() { echo "FAIL: $*" >&2; exit 1; }
 [ -f "$root/.hermes/hindsight/config.json" ] || fail "config.json missing"
 [ "$(stat -c '%a' "$root/.hermes/hindsight/config.json" 2>/dev/null || stat -f '%Lp' "$root/.hermes/hindsight/config.json")" = "600" ] || fail "config.json mode"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["mode"]=="local_external" and d["bank_id"]=="hermes-agent"' "$root/.hermes/hindsight/config.json" || fail "config.json content"

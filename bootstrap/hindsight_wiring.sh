@@ -10,16 +10,24 @@
 #
 # Requires python3 + PyYAML (present in the image). Returns non-zero only on
 # malformed input; unset vars are a no-op.
+#
+# _hw_upsert_env scopes umask 077 to just its own tmp-file write (save/restore
+# around the writes, not a bare `umask 077`) — this function runs in start.sh's
+# main shell, not a subshell, so a bare umask change would leak into the rest
+# of start.sh and into `exec python /app/server.py`, silently making every file
+# the gateway creates for its whole lifetime 0600/0700.
 
 _hw_upsert_env() { # _hw_upsert_env FILE KEY VALUE
+  local file="$1" key="$2" val="$3" tmp old_umask
+  old_umask="$(umask)"
   umask 077   # belt-and-braces: the temp file is never briefly world/group-readable, even before chmod
-  local file="$1" key="$2" val="$3" tmp
   tmp="${file}.tmp.$$"
   touch "$file"
   grep -v "^${key}=" "$file" > "$tmp" || true
   printf '%s=%s\n' "$key" "$val" >> "$tmp"
   chmod 600 "$tmp"
   mv "$tmp" "$file"
+  umask "$old_umask"   # scoped: restore the caller's umask, don't leak 077 into start.sh / the gateway
 }
 
 materialize_hindsight_wiring() {
