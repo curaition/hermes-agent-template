@@ -33,18 +33,18 @@ Hetzner box (Coolify)                        ← long-term home for everything
 
 ### 0.2 Execution phases (in order; each gate must pass before the next)
 
-| # | Phase | Ref | Acceptance |
+| # | Phase | Script / action | Acceptance |
 |---|---|---|---|
-| 1 | Firewall + swap on the box | §3, §3.1 | external `nmap` shows only 22/80/443; `swapon --show` lists 2G |
-| 2 | DNS + Coolify domain attach | §3.2 | `https://hindsight.<domain>` resolves, cert issued |
-| 3 | Deploy Hindsight stack | §4 | containers healthy; logs clean |
-| 4 | Auth verification | §4 | unauthenticated `tools/list` → **401**; with bearer → 200. HARD GATE: do not proceed on failure |
-| 5 | Bootstrap bank (lockdown runs LAST) | §5, script | bank + 3 directives + 2 mental models visible in tunneled UI |
-| 6 | Backups to GCS | §3.3 | one backup run AND one restore proven |
-| 7 | Hermes wiring: hindsight plugin, GBrain trim, Linear, repo clone, guardrails env | §6 | each §7 item for the wired component passes |
-| 8 | Cron jobs + Telegram delivery | §6.3 | one manual run end-to-end produces a compliant test issue |
-| 9 | Full §7 checklist | §7 | all boxes |
-| 10 | Observation period | §6.3 | ~2 weeks judging issue quality before scaling cadence |
+| 1 | Firewall + swap | `hetzner_firewall.sh`; `ssh root@box 'bash -s' < box_prep.sh` | `verify.sh` firewall PASS; `swapon --show` 2G |
+| 2 | DNS + Coolify FQDN + S3 storage (UI) | A records; Coolify Settings → Instance FQDN; Storages → add GCS | `https://coolify.<zone>` login page; storage saved |
+| 3 | Deploy DB + stack | `coolify_apply.sh` | service `running`; logs clean |
+| 4 | Auth gate | `verify.sh` (auth lines) | 401/200 — HARD GATE |
+| 5 | Bootstrap bank | `bootstrap_hindsight.sh` → tunnel check → `--lockdown` | `verify.sh` all PASS (models may WARN) |
+| 6 | Backups | `coolify_backup.sh` + one manual restore | dump in bucket AND restore proven |
+| 7 | Hermes wiring | Task 17 | `hermes memory status` shows hindsight; round-trip fact |
+| 8 | Cron | `cron_install.sh` + manual run | compliant test issue + Telegram summary |
+| 9 | Full checklist | spec §8 | all boxes |
+| 10 | Observation | 2 weeks Mon/Wed/Fri | judged before scaling |
 
 Phases 1–6 are agent-executable given SSH/Coolify access (or Rick-executable
 from this doc). Phase 7's OAuth step and any Railway env changes need Rick.
@@ -68,6 +68,10 @@ Gemini model id accepted by Hindsight (§4) · Hermes hindsight plugin config ke
 names (§6.1 — wizard's file is canonical) · `hermes cron` CLI syntax (§6.3) ·
 GBrain's MCP path on :3131 (§6.2) · exact OpenAI embeddings env var name (§4).
 None blocks starting; each is resolvable in under five minutes at its phase.
+
+Resolved 2026-08-15: env var names verified against Hindsight docs; plugin
+keys `mode/api_url/bank_id/memory_mode`; `hermes cron create <sched> <prompt>
+--name --deliver --workdir`; GBrain MCP path `/mcp`.
 
 ## 1. Decision log (2026-08-15)
 
@@ -158,44 +162,10 @@ supports that via interoperability mode:
 
 Coolify → Project → **+ New Resource → Docker Compose (empty)**:
 
-```yaml
-services:
-  db:
-    image: pgvector/pgvector:pg18
-    restart: always
-    environment:
-      POSTGRES_USER: hindsight_user
-      POSTGRES_PASSWORD: ${HINDSIGHT_DB_PASSWORD}
-      POSTGRES_DB: hindsight_db
-    volumes:
-      - pg_data:/var/lib/postgresql/18/docker
-    networks: [hindsight-net]
-
-  hindsight:
-    image: ghcr.io/vectorize-io/hindsight:latest
-    restart: always
-    depends_on: [db]
-    environment:
-      HINDSIGHT_API_DATABASE_URL: postgresql://hindsight_user:${HINDSIGHT_DB_PASSWORD}@db:5432/hindsight_db
-      HINDSIGHT_API_LLM_PROVIDER: gemini
-      HINDSIGHT_API_LLM_API_KEY: ${GEMINI_API_KEY}
-      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-gemini-3-flash-preview}
-      # Inbound auth — REQUIRED since this is exposed cross-cloud:
-      HINDSIGHT_API_TENANT_EXTENSION: "hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension"
-      HINDSIGHT_API_TENANT_API_KEY: ${HINDSIGHT_TENANT_API_KEY}
-      # Remote embeddings — deliberate on a 3.7GB box, see §3:
-      HINDSIGHT_API_EMBEDDINGS_PROVIDER: openai
-      HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY: ${OPENAI_API_KEY}
-    networks: [hindsight-net]
-    # No host port binds — Coolify's proxy terminates HTTPS and routes to :8888
-
-networks:
-  hindsight-net:
-    driver: bridge
-
-volumes:
-  pg_data:
-```
+Compose is `ops/hindsight/docker-compose.yaml` (app only). Postgres is a
+Coolify **database resource** `hindsight-db` (`pgvector/pgvector:pg17`) so
+`POST /databases/{uuid}/backups` applies; `coolify_apply.sh` creates both
+and connects the stack to the predefined network.
 
 Secrets (Coolify env, marked secret): `HINDSIGHT_DB_PASSWORD` and
 `HINDSIGHT_TENANT_API_KEY` (both `openssl rand -hex 32`), `GEMINI_API_KEY`
