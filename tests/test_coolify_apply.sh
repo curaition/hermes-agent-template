@@ -51,6 +51,16 @@ grep -q '^POST https://coolify.example/api/v1/databases/postgresql ' "$FAKE_CURL
 grep -q '^POST https://coolify.example/api/v1/services ' "$FAKE_CURL_LOG" && fail "re-created service"
 grep -q '/services/svc1/restart ' "$FAKE_CURL_LOG" || fail "restart on re-run"
 
+# Conflict path: env POST returns 409 -> falls back to PATCH (project/db/svc still exist from the re-run above)
+# Note: FAKE_CURL_STATUS also makes the connect_to_docker_network PATCH report 409 -> WARN on stderr; that's expected, not a failure.
+: > "$FAKE_CURL_LOG"
+FAKE_CURL_STATUS=409 bash "$here/../ops/hindsight/coolify_apply.sh" >/dev/null
+grep -q '^PATCH https://coolify.example/api/v1/services/svc1/envs .*"key":"HINDSIGHT_VERSION"' "$FAKE_CURL_LOG" || fail "409 env did not fall back to PATCH"
+
+# Error path: an unexpected env-write status must fail the script, not be silently swallowed
+: > "$FAKE_CURL_LOG"
+if FAKE_CURL_STATUS=500 bash "$here/../ops/hindsight/coolify_apply.sh" >/dev/null 2>&1; then fail "500 on env accepted"; fi
+
 # 'latest' refused
 if HINDSIGHT_VERSION=latest bash "$here/../ops/hindsight/coolify_apply.sh" >/dev/null 2>&1; then fail "latest accepted"; fi
 echo "PASS test_coolify_apply"

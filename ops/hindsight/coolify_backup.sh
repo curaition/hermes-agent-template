@@ -9,9 +9,15 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_FILE="${STATE_FILE:-$here/.state.env}"; [ -f "$STATE_FILE" ] || { echo "run coolify_apply.sh first ($STATE_FILE missing)" >&2; exit 1; }
 # shellcheck disable=SC1090
 . "$STATE_FILE"
+: "${DB_UUID:?DB_UUID missing — run coolify_apply.sh first}"
 API="${COOLIFY_URL%/}/api/v1"
 co() { curl -sS --fail-with-body -H "Authorization: Bearer ${COOLIFY_TOKEN}" -H 'Content-Type: application/json' -H 'Accept: application/json' "$@"; }
-existing="$(co "$API/databases/${DB_UUID}/backups" 2>/dev/null | jq -r '.[]?|.uuid' | head -1 || true)"
+tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
+code="$(curl -sS -o "$tmp" -w '%{http_code}' -H "Authorization: Bearer ${COOLIFY_TOKEN}" -H 'Accept: application/json' "$API/databases/${DB_UUID}/backups")"
+case "$code" in
+  2*) existing="$(jq -r '.[]?|.uuid' "$tmp" | head -1)";;
+  *) echo "GET backups → HTTP $code: $(cat "$tmp")" >&2; exit 1;;
+esac
 if [ -n "$existing" ]; then echo "backup config already exists (${existing}); leaving as-is"; exit 0; fi
 co -X POST "$API/databases/${DB_UUID}/backups" -d "$(jq -cn --arg s "$COOLIFY_S3_STORAGE_UUID" \
   '{frequency:"daily", enabled:true, save_s3:true, s3_storage_uuid:$s, backup_now:true,

@@ -18,6 +18,21 @@ DB_USER="hindsight_user"; DB_DBNAME="hindsight_db"
 co() { curl -sS --fail-with-body -H "Authorization: Bearer ${COOLIFY_TOKEN}" -H 'Content-Type: application/json' -H 'Accept: application/json' "$@"; }
 co_try() { curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${COOLIFY_TOKEN}" -H 'Content-Type: application/json' -H 'Accept: application/json' "$@"; }
 
+# pick_uuid KIND NAME JSON -> stdout: the single matching .uuid, or empty if none.
+# Refuses to silently adopt an arbitrary match when the name is ambiguous.
+pick_uuid() {
+  local kind="$1" name="$2" json="$3"
+  local matches count
+  matches="$(jq -r --arg n "$name" '.[]?|select(.name==$n)|.uuid' <<<"$json")"
+  if [ -z "$matches" ]; then printf ''; return 0; fi
+  count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
+  if [ "$count" -gt 1 ]; then
+    echo "ambiguous: $count $kind named '$name' on this Coolify instance — refusing to adopt one arbitrarily" >&2
+    exit 1
+  fi
+  printf '%s' "$matches"
+}
+
 # 1. server (single-server Coolify: first entry; override with COOLIFY_SERVER_NAME)
 if [ -n "${COOLIFY_SERVER_NAME:-}" ]; then
   server_uuid="$(co "$API/servers" | jq -r --arg n "$COOLIFY_SERVER_NAME" '.[]|select(.name==$n)|.uuid' | head -1)"
@@ -27,7 +42,7 @@ fi
 [ -n "$server_uuid" ] || { echo "no Coolify server found" >&2; exit 1; }
 
 # 2. project + environment
-project_uuid="$(co "$API/projects" | jq -r --arg n "$PROJECT_NAME" '.[]?|select(.name==$n)|.uuid' | head -1)"
+project_uuid="$(pick_uuid "projects" "$PROJECT_NAME" "$(co "$API/projects")")"
 if [ -z "$project_uuid" ]; then
   project_uuid="$(co -X POST "$API/projects" -d "$(jq -cn --arg n "$PROJECT_NAME" '{name:$n,description:"Hermes agent memory tier (Hindsight)"}')" | jq -r '.uuid')"
   echo "created project ${PROJECT_NAME} (${project_uuid})"
@@ -36,7 +51,7 @@ env_uuid="$(co "$API/projects/${project_uuid}/environments" | jq -r '.[]|select(
 [ -n "$env_uuid" ] || { echo "project has no 'production' environment" >&2; exit 1; }
 
 # 3. database (first-class Coolify resource → API-managed backups)
-db_uuid="$(co "$API/databases" | jq -r --arg n "$DB_NAME" '.[]?|select(.name==$n)|.uuid' | head -1)"
+db_uuid="$(pick_uuid "databases" "$DB_NAME" "$(co "$API/databases")")"
 if [ -z "$db_uuid" ]; then
   db_uuid="$(co -X POST "$API/databases/postgresql" -d "$(jq -cn \
       --arg s "$server_uuid" --arg p "$project_uuid" --arg e "$env_uuid" --arg n "$DB_NAME" \
@@ -55,12 +70,15 @@ while [ $i -lt "$POLL_MAX" ]; do
   if [ -n "$db_url" ] && [[ "$st" == running* ]]; then break; fi
   i=$((i+1)); sleep "$POLL_INTERVAL"
 done
-[ -n "$db_url" ] || { echo "database ${db_uuid} never reported internal_db_url/running" >&2; exit 1; }
+if [ -z "$db_url" ] || [[ "$st" != running* ]]; then
+  echo "database ${db_uuid} never reached running with internal_db_url after $((POLL_MAX*POLL_INTERVAL))s (status='${st:-}')" >&2
+  exit 1
+fi
 # Hindsight wants postgresql:// ; Coolify reports postgres://
 db_url="${db_url/#postgres:\/\//postgresql://}"
 
 # 4. compose service
-svc_uuid="$(co "$API/services" | jq -r --arg n "$SVC_NAME" '.[]?|select(.name==$n)|.uuid' | head -1)"
+svc_uuid="$(pick_uuid "services" "$SVC_NAME" "$(co "$API/services")")"
 compose_b64="$(base64 < "$here/docker-compose.yaml" | tr -d '\n')"
 created_service=0
 if [ -z "$svc_uuid" ]; then
@@ -101,6 +119,7 @@ while [ $i -lt "$POLL_MAX" ]; do
   [[ "$st" == running* ]] && break
   i=$((i+1)); sleep "$POLL_INTERVAL"
 done
+[[ "$st" == running* ]] || { echo "service ${svc_uuid} never reached running after $((POLL_MAX*POLL_INTERVAL))s (status='${st:-unknown}')" >&2; exit 1; }
 echo "service status: ${st:-unknown}"
 
 printf 'PROJECT_UUID=%s\nDB_UUID=%s\nSERVICE_UUID=%s\nHINDSIGHT_URL=https://%s\n' "$project_uuid" "$db_uuid" "$svc_uuid" "$HINDSIGHT_FQDN" > "$STATE_FILE"
