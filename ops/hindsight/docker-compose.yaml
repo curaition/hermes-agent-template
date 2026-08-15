@@ -1,0 +1,24 @@
+# Hindsight app container for Coolify (Docker Compose service "hindsight").
+# The database is a SEPARATE Coolify PostgreSQL resource (pgvector/pgvector:pg17)
+# so Coolify's scheduled-backup API applies to it; this stack must have
+# "Connect to Predefined Network" enabled to reach it (coolify_apply.sh does it).
+# No host ports: Coolify's proxy terminates TLS for https://hindsight.<zone>
+# and routes to :8888. The control-plane UI (:9999) is intentionally NOT
+# published — reach it via SSH tunnel to the container only.
+services:
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:${HINDSIGHT_VERSION}
+    restart: always
+    environment:
+      HINDSIGHT_API_DATABASE_URL: ${HINDSIGHT_API_DATABASE_URL}
+      # LLM for extraction/reflection — Gemini API (AI Studio key, non-product GCP project)
+      HINDSIGHT_API_LLM_PROVIDER: gemini
+      HINDSIGHT_API_LLM_API_KEY: ${GEMINI_API_KEY}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-gemini-3-flash-preview}
+      # Inbound auth — REQUIRED (exposed cross-cloud)
+      HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
+      HINDSIGHT_API_TENANT_API_KEY: ${HINDSIGHT_TENANT_API_KEY}
+      # Remote embeddings — deliberate on a 3.7 GB box (local bge would ~1 GB RSS)
+      HINDSIGHT_API_EMBEDDINGS_PROVIDER: openai
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_API_KEY: ${OPENAI_API_KEY}
+      HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL: text-embedding-3-small

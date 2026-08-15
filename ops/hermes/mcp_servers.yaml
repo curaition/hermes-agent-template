@@ -1,0 +1,46 @@
+# Declarative mcp_servers entries applied EVERY boot (per-server replace) via
+# HERMES_MCP_SERVERS_YAML=$(base64 < ops/hermes/mcp_servers.yaml).
+# Only the servers named here are touched; CurAItion / youcom stay as-is.
+gbrain:
+  url: http://gbrain.railway.internal:3131/mcp
+  headers:
+    Authorization: Bearer ${HERMES_GBRAIN_TOKEN}
+  tools:
+    include:
+      # read / recall
+      - query
+      - search
+      - recall
+      - get_page
+      - get_chunks
+      - get_backlinks
+      - get_links
+      - get_timeline
+      - volunteer_context
+      # code intelligence
+      - code_def
+      - code_refs
+      - code_callers
+      - code_callees
+      - code_flow
+      - code_blast
+      # additive writes (curated knowledge only — see GUARDRAILS)
+      - put_page
+      - extract_facts
+      - add_timeline_entry
+      - add_tag
+      - add_link
+      # synthesis
+      - think
+  enabled: true
+linear:
+  url: https://mcp.linear.app/mcp
+  tools:
+    include:
+      - list_issues
+      - search_issues
+      - get_issue
+      - save_issue
+      - list_issue_labels
+      - save_comment
+  enabled: true

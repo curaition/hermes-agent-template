@@ -1,0 +1,1 @@
+{"mode": "local_external", "api_url": "https://hindsight.<zone>", "bank_id": "hermes-agent", "memory_mode": "hybrid", "auto_recall": true, "auto_retain": true, "recall_budget": "mid"}

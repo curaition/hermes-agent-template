@@ -1,5 +1,7 @@
 # Hermes Agent — Railway Template
 
+> **Two-tier memory / issue-scout ops:** see [`ops/README.md`](ops/README.md) (Hindsight on Hetzner/Coolify, GBrain + Linear allowlists, cron). Pushes touching only `ops/**` or `*.md` do not redeploy.
+
 Deploy [Hermes Agent](https://github.com/NousResearch/hermes-agent) on [Railway](https://railway.app) with a web-based admin dashboard for configuration, gateway management, and user pairing.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/hermes-agent-ai?referralCode=QXdhdr&utm_medium=integration&utm_source=template&utm_campaign=generic)
