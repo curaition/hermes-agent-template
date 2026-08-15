@@ -66,4 +66,10 @@ python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["api_url"]
 # unset env → no-op, no error
 unset HERMES_HINDSIGHT_CONFIG_JSON HINDSIGHT_API_KEY HINDSIGHT_API_URL HERMES_MEMORY_PROVIDER HERMES_MCP_SERVERS_YAML
 materialize_hindsight_wiring "$root"
+
+# start.sh must actually wire this in — source it and call it unconditionally
+# on every boot, not just leave the function defined and unused.
+grep -q '^materialize_hindsight_wiring /data$' "$here/../start.sh" || fail "start.sh does not call materialize_hindsight_wiring /data"
+grep -q '^source /app/bootstrap/hindsight_wiring.sh$' "$here/../start.sh" || fail "start.sh does not source hindsight_wiring.sh"
+
 echo "PASS test_hindsight_wiring"
