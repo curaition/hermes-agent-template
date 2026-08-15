@@ -56,6 +56,13 @@ HERMES_HINDSIGHT_CONFIG_JSON="$(printf 'not json' | base64)"
 if materialize_hindsight_wiring "$root" 2>/dev/null; then fail "invalid JSON accepted"; fi
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$root/.hermes/hindsight/config.json" || fail "config.json clobbered"
 
+# config containing the unsubstituted <zone> placeholder must be rejected,
+# leaving the previous config.json intact
+export HERMES_HINDSIGHT_CONFIG_JSON
+HERMES_HINDSIGHT_CONFIG_JSON="$(printf '{"mode":"local_external","api_url":"https://hindsight.<zone>","bank_id":"hermes-agent","memory_mode":"hybrid","auto_recall":true,"auto_retain":true,"recall_budget":"mid"}' | base64)"
+if materialize_hindsight_wiring "$root" 2>/dev/null; then fail "<zone> placeholder accepted"; fi
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["api_url"]=="https://hindsight.example", d' "$root/.hermes/hindsight/config.json" || fail "config.json clobbered by <zone> placeholder"
+
 # unset env → no-op, no error
 unset HERMES_HINDSIGHT_CONFIG_JSON HINDSIGHT_API_KEY HINDSIGHT_API_URL HERMES_MEMORY_PROVIDER HERMES_MCP_SERVERS_YAML
 materialize_hindsight_wiring "$root"

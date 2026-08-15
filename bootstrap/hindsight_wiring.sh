@@ -12,6 +12,7 @@
 # malformed input; unset vars are a no-op.
 
 _hw_upsert_env() { # _hw_upsert_env FILE KEY VALUE
+  umask 077   # belt-and-braces: the temp file is never briefly world/group-readable, even before chmod
   local file="$1" key="$2" val="$3" tmp
   tmp="${file}.tmp.$$"
   touch "$file"
@@ -31,6 +32,11 @@ materialize_hindsight_wiring() {
     local tmp="$home/hindsight/.config.json.tmp"
     if printf '%s' "$HERMES_HINDSIGHT_CONFIG_JSON" | base64 -d > "$tmp" 2>/dev/null \
        && python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$tmp" 2>/dev/null; then
+      if grep -q '<zone>' "$tmp"; then
+        rm -f "$tmp"
+        echo "hindsight_wiring: HERMES_HINDSIGHT_CONFIG_JSON still contains the <zone> placeholder — substitute the real domain" >&2
+        return 1
+      fi
       chmod 600 "$tmp" && mv "$tmp" "$home/hindsight/config.json"
       echo "hindsight_wiring: wrote hindsight/config.json"
     else

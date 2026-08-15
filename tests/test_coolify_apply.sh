@@ -63,4 +63,13 @@ if FAKE_CURL_STATUS=500 bash "$here/../ops/hindsight/coolify_apply.sh" >/dev/nul
 
 # 'latest' refused
 if HINDSIGHT_VERSION=latest bash "$here/../ops/hindsight/coolify_apply.sh" >/dev/null 2>&1; then fail "latest accepted"; fi
+
+# create response missing a uuid must fail loudly, not silently propagate an empty one
+# (ordered last: mutates the projects fixtures back to a create path)
+: > "$FAKE_CURL_LOG"
+echo '[]' > "$R/https___coolify_example_api_v1_projects"
+echo '{}' > "$R/https___coolify_example_api_v1_projects.POST"
+if bash "$here/../ops/hindsight/coolify_apply.sh" >/dev/null 2>"$tmp/err"; then fail "no-uuid project create accepted"; fi
+grep -q 'returned no uuid' "$tmp/err" || { echo "no-uuid error message missing"; cat "$tmp/err"; exit 1; }
+
 echo "PASS test_coolify_apply"

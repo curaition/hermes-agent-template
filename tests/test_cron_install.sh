@@ -38,4 +38,16 @@ set -e
 [ "$rc" != 0 ] || { echo "FAIL pause failure did not abort installer"; exit 1; }
 grep -q 'pause FAILED' "$err" || { echo "FAIL pause failure warning not on stderr"; cat "$err"; exit 1; }
 
+# missing/empty prompts must be validated BEFORE any job is created
+empty_prompts="$tmp/empty_prompts"; mkdir -p "$empty_prompts"
+: > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LOG"
+err2="$tmp/err2"
+set +e
+PROMPTS_DIR="$empty_prompts" bash "$here/../ops/hermes/cron_install.sh" >/dev/null 2>"$err2"
+rc=$?
+set -e
+[ "$rc" != 0 ] || { echo "FAIL empty prompts dir did not abort installer"; exit 1; }
+grep -q 'missing/empty prompt' "$err2" || { echo "FAIL missing/empty prompt message not on stderr"; cat "$err2"; exit 1; }
+[ "$(grep -c '^cron create' "$FAKE_HERMES_LOG")" = 0 ] || { echo "FAIL cron create ran despite missing prompts"; cat "$FAKE_HERMES_LOG"; exit 1; }
+
 echo "PASS test_cron_install"

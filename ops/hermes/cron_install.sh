@@ -6,6 +6,9 @@
 set -euo pipefail
 PROMPTS_DIR="${PROMPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/prompts}"
 WORKDIR="${WORKDIR:-/data/work/curaition}"
+for f in scout.md hygiene.md; do
+  [ -s "$PROMPTS_DIR/$f" ] || { echo "missing/empty prompt: $PROMPTS_DIR/$f" >&2; exit 1; }
+done
 existing="$(hermes cron list 2>/dev/null || true)"
 mk() { # mk NAME SCHEDULE PROMPTFILE
   if grep -qE "(^|[^A-Za-z0-9_-])$1([^A-Za-z0-9_-]|$)" <<<"$existing"; then echo "= $1 already exists; skipping"; return; fi
@@ -13,7 +16,7 @@ mk() { # mk NAME SCHEDULE PROMPTFILE
   out="$(hermes cron create "$2" "$(cat "$PROMPTS_DIR/$3")" --name "$1" --deliver telegram --workdir "$WORKDIR")"
   echo "$out"
   id="$(sed -n 's/^Created job: *//p' <<<"$out" | head -1)"
-  [ -n "$id" ] || { echo "could not parse job id for $1" >&2; return 1; }
+  [ -n "$id" ] || { echo "could not parse job id for $1 — job was created but NOT paused (may be LIVE); run: hermes cron list && hermes cron pause <id>" >&2; return 1; }
   hermes cron pause "$id" >/dev/null || { echo "WARNING: $1 created as $id but pause FAILED — job may be LIVE; run: hermes cron pause $id" >&2; return 1; }
   echo "+ $1 created as $id and PAUSED"
 }

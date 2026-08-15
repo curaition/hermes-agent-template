@@ -44,7 +44,9 @@ fi
 # 2. project + environment
 project_uuid="$(pick_uuid "projects" "$PROJECT_NAME" "$(co "$API/projects")")"
 if [ -z "$project_uuid" ]; then
-  project_uuid="$(co -X POST "$API/projects" -d "$(jq -cn --arg n "$PROJECT_NAME" '{name:$n,description:"Hermes agent memory tier (Hindsight)"}')" | jq -r '.uuid')"
+  resp="$(co -X POST "$API/projects" -d "$(jq -cn --arg n "$PROJECT_NAME" '{name:$n,description:"Hermes agent memory tier (Hindsight)"}')")"
+  project_uuid="$(jq -r '.uuid // empty' <<<"$resp")"
+  [ -n "$project_uuid" ] || { echo "create project returned no uuid: $resp" >&2; exit 1; }
   echo "created project ${PROJECT_NAME} (${project_uuid})"
 fi
 env_uuid="$(co "$API/projects/${project_uuid}/environments" | jq -r '.[]|select(.name=="production")|.uuid' | head -1)"
@@ -53,12 +55,14 @@ env_uuid="$(co "$API/projects/${project_uuid}/environments" | jq -r '.[]|select(
 # 3. database (first-class Coolify resource → API-managed backups)
 db_uuid="$(pick_uuid "databases" "$DB_NAME" "$(co "$API/databases")")"
 if [ -z "$db_uuid" ]; then
-  db_uuid="$(co -X POST "$API/databases/postgresql" -d "$(jq -cn \
+  resp="$(co -X POST "$API/databases/postgresql" -d "$(jq -cn \
       --arg s "$server_uuid" --arg p "$project_uuid" --arg e "$env_uuid" --arg n "$DB_NAME" \
       --arg u "$DB_USER" --arg pw "$HINDSIGHT_DB_PASSWORD" --arg d "$DB_DBNAME" \
       '{server_uuid:$s, project_uuid:$p, environment_uuid:$e, environment_name:"production", name:$n,
         image:"pgvector/pgvector:pg17", postgres_user:$u, postgres_password:$pw, postgres_db:$d,
-        is_public:false, instant_deploy:true}')" | jq -r '.uuid')"
+        is_public:false, instant_deploy:true}')")"
+  db_uuid="$(jq -r '.uuid // empty' <<<"$resp")"
+  [ -n "$db_uuid" ] || { echo "create database returned no uuid: $resp" >&2; exit 1; }
   echo "created database ${DB_NAME} (${db_uuid}) — pgvector/pgvector:pg17"
 fi
 # wait for internal URL + running
@@ -82,14 +86,18 @@ svc_uuid="$(pick_uuid "services" "$SVC_NAME" "$(co "$API/services")")"
 compose_b64="$(base64 < "$here/docker-compose.yaml" | tr -d '\n')"
 created_service=0
 if [ -z "$svc_uuid" ]; then
-  svc_uuid="$(co -X POST "$API/services" -d "$(jq -cn \
+  resp="$(co -X POST "$API/services" -d "$(jq -cn \
       --arg s "$server_uuid" --arg p "$project_uuid" --arg e "$env_uuid" --arg n "$SVC_NAME" \
       --arg c "$compose_b64" --arg url "https://${HINDSIGHT_FQDN}:8888" \
       '{server_uuid:$s, project_uuid:$p, environment_uuid:$e, environment_name:"production", name:$n,
         description:"Hindsight agent memory (API+MCP :8888)", docker_compose_raw:$c, instant_deploy:false,
-        urls:[{name:"hindsight", url:$url}]}')" | jq -r '.uuid')"
+        urls:[{name:"hindsight", url:$url}]}')")"
+  svc_uuid="$(jq -r '.uuid // empty' <<<"$resp")"
+  [ -n "$svc_uuid" ] || { echo "create service returned no uuid: $resp" >&2; exit 1; }
   created_service=1
   echo "created service ${SVC_NAME} (${svc_uuid}) → https://${HINDSIGHT_FQDN}"
+else
+  echo "NOTE: service ${SVC_NAME} already exists — compose body and urls are NOT re-sent on re-apply; edit those in the Coolify UI"
 fi
 # join the coolify network so the app can reach the DB resource
 code="$(co_try -X PATCH "$API/services/${svc_uuid}" -d '{"connect_to_docker_network":true}')"
@@ -97,6 +105,9 @@ case "$code" in 2*) echo "connect_to_docker_network=true";;
   *) echo "WARN: PATCH connect_to_docker_network returned $code — toggle 'Connect To Predefined Network' in Coolify UI (Service → Settings) before starting" >&2;; esac
 
 # 5. env vars (create; on conflict update)
+# is_shown_once:false is deliberate, not an oversight: a "shown once" Coolify env
+# var can only be read back at creation time, which would make POST-then-PATCH-on-
+# conflict (the update path below) unable to find/replace it on re-apply.
 set_env() { # set_env KEY VALUE
   local body; body="$(jq -cn --arg k "$1" --arg v "$2" '{key:$k, value:$v, is_preview:false, is_literal:true, is_multiline:false, is_shown_once:false}')"
   local c; c="$(co_try -X POST "$API/services/${svc_uuid}/envs" -d "$body")"
