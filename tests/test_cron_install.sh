@@ -8,7 +8,7 @@ printf '%s\n' "$*" | tr '\n' ' ' >> "$FAKE_HERMES_LOG"; echo >> "$FAKE_HERMES_LO
 case "$1 $2" in
   "cron list") cat "${FAKE_HERMES_LIST:-/dev/null}";;
   "cron create") n=$(( $(wc -l < "$FAKE_HERMES_LOG") )); echo "Created job: job_$n"; echo "  Name: x";;
-  "cron pause") echo "paused";;
+  "cron pause") if [ "${FAKE_HERMES_PAUSE_FAIL:-0}" = "1" ]; then exit 7; fi; echo "paused";;
 esac
 EOF
 chmod +x "$tmp/bin/hermes"; export PATH="$tmp/bin:$PATH" FAKE_HERMES_LOG="$tmp/log" FAKE_HERMES_LIST="$tmp/list"
@@ -22,4 +22,20 @@ grep -q 'MEMORY TIER UNAVAILABLE' "$FAKE_HERMES_LOG" || { echo "FAIL prompt cont
 printf 'hermes-scout\nhermes-hygiene\n' > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LOG"
 PROMPTS_DIR="$here/../ops/hermes/prompts" bash "$here/../ops/hermes/cron_install.sh" >/dev/null
 grep -q 'cron create' "$FAKE_HERMES_LOG" && { echo "FAIL not idempotent"; exit 1; }
+
+# idempotency must be an exact-name (token) match, not a substring
+printf 'hermes-scout-old\n' > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LOG"
+PROMPTS_DIR="$here/../ops/hermes/prompts" bash "$here/../ops/hermes/cron_install.sh" >/dev/null
+[ "$(grep -c '^cron create' "$FAKE_HERMES_LOG")" = 2 ] || { echo "FAIL substring-match idempotency false positive"; cat "$FAKE_HERMES_LOG"; exit 1; }
+
+# pause failure must abort loudly, not silently succeed
+: > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LOG"
+err="$tmp/err"
+set +e
+FAKE_HERMES_PAUSE_FAIL=1 PROMPTS_DIR="$here/../ops/hermes/prompts" bash "$here/../ops/hermes/cron_install.sh" >/dev/null 2>"$err"
+rc=$?
+set -e
+[ "$rc" != 0 ] || { echo "FAIL pause failure did not abort installer"; exit 1; }
+grep -q 'pause FAILED' "$err" || { echo "FAIL pause failure warning not on stderr"; cat "$err"; exit 1; }
+
 echo "PASS test_cron_install"

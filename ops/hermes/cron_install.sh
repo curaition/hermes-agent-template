@@ -8,13 +8,14 @@ PROMPTS_DIR="${PROMPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/prompt
 WORKDIR="${WORKDIR:-/data/work/curaition}"
 existing="$(hermes cron list 2>/dev/null || true)"
 mk() { # mk NAME SCHEDULE PROMPTFILE
-  if grep -q "$1" <<<"$existing"; then echo "= $1 already exists; skipping"; return; fi
+  if grep -qE "(^|[^A-Za-z0-9_-])$1([^A-Za-z0-9_-]|$)" <<<"$existing"; then echo "= $1 already exists; skipping"; return; fi
   local out id
   out="$(hermes cron create "$2" "$(cat "$PROMPTS_DIR/$3")" --name "$1" --deliver telegram --workdir "$WORKDIR")"
   echo "$out"
   id="$(sed -n 's/^Created job: *//p' <<<"$out" | head -1)"
   [ -n "$id" ] || { echo "could not parse job id for $1" >&2; return 1; }
-  hermes cron pause "$id" >/dev/null && echo "+ $1 created as $id and PAUSED"
+  hermes cron pause "$id" >/dev/null || { echo "WARNING: $1 created as $id but pause FAILED — job may be LIVE; run: hermes cron pause $id" >&2; return 1; }
+  echo "+ $1 created as $id and PAUSED"
 }
 mk hermes-scout   "0 2 * * 1,3,5" scout.md
 mk hermes-hygiene "0 3 * * 0"     hygiene.md
