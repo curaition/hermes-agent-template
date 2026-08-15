@@ -19,7 +19,7 @@ materialize_hindsight_wiring "$root"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 [ -f "$root/.hermes/hindsight/config.json" ] || fail "config.json missing"
-[ "$(stat -f '%Lp' "$root/.hermes/hindsight/config.json" 2>/dev/null || stat -c '%a' "$root/.hermes/hindsight/config.json")" = "600" ] || fail "config.json mode"
+[ "$(stat -c '%a' "$root/.hermes/hindsight/config.json" 2>/dev/null || stat -f '%Lp' "$root/.hermes/hindsight/config.json")" = "600" ] || fail "config.json mode"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["mode"]=="local_external" and d["bank_id"]=="hermes-agent"' "$root/.hermes/hindsight/config.json" || fail "config.json content"
 grep -q '^HINDSIGHT_API_KEY=k1$' "$root/.hermes/.env" || fail ".env key"
 grep -q '^HINDSIGHT_API_URL=https://hindsight.example$' "$root/.hermes/.env" || fail ".env url"
@@ -37,6 +37,18 @@ export HINDSIGHT_API_KEY="k2"
 materialize_hindsight_wiring "$root"
 [ "$(grep -c '^HINDSIGHT_API_KEY=' "$root/.hermes/.env")" = "1" ] || fail "duplicate key line"
 grep -q '^HINDSIGHT_API_KEY=k2$' "$root/.hermes/.env" || fail "key not rotated"
+
+# third run: rotate with values containing sed/grep metacharacters (&, #, \, ?)
+# — must survive verbatim, not be interpreted as a sed replacement or regex.
+export HINDSIGHT_API_KEY='sk-a&b#c\d'
+export HINDSIGHT_API_URL='https://h.example/mcp?a=1&b=2'
+materialize_hindsight_wiring "$root"
+[ "$(grep -c '^HINDSIGHT_API_KEY=' "$root/.hermes/.env")" = "1" ] || fail "duplicate key line (metachar rotation)"
+[ "$(grep -c '^HINDSIGHT_API_URL=' "$root/.hermes/.env")" = "1" ] || fail "duplicate url line (metachar rotation)"
+grep -qF 'HINDSIGHT_API_KEY=sk-a&b#c\d' "$root/.hermes/.env" || fail "key not rotated verbatim (metachars)"
+grep -qF 'HINDSIGHT_API_URL=https://h.example/mcp?a=1&b=2' "$root/.hermes/.env" || fail "url not rotated verbatim (metachars)"
+grep -q '^GH_TOKEN=abc$' "$root/.hermes/.env" || fail ".env preserved after metachar rotation"
+[ "$(stat -c '%a' "$root/.hermes/.env" 2>/dev/null || stat -f '%Lp' "$root/.hermes/.env")" = "600" ] || fail ".env mode"
 
 # invalid JSON must not clobber the existing file
 export HERMES_HINDSIGHT_CONFIG_JSON

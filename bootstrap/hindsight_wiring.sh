@@ -4,7 +4,7 @@
 # of truth: values are (re)applied every boot, like HERMES_MCP_LINEAR_JSON.
 #
 #   HERMES_HINDSIGHT_CONFIG_JSON  base64 JSON  → .hermes/hindsight/config.json (0600)
-#   HINDSIGHT_API_KEY / HINDSIGHT_API_URL      → upserted into .hermes/.env (child shells, cron)
+#   HINDSIGHT_API_KEY / HINDSIGHT_API_URL      → upserted into .hermes/.env (0600; child shells, cron)
 #   HERMES_MEMORY_PROVIDER        e.g. hindsight → config.yaml memory.provider
 #   HERMES_MCP_SERVERS_YAML       base64 YAML  → config.yaml mcp_servers.<name> (per-server replace)
 #
@@ -12,14 +12,13 @@
 # malformed input; unset vars are a no-op.
 
 _hw_upsert_env() { # _hw_upsert_env FILE KEY VALUE
-  local file="$1" key="$2" val="$3"
+  local file="$1" key="$2" val="$3" tmp
+  tmp="${file}.tmp.$$"
   touch "$file"
-  if grep -q "^${key}=" "$file" 2>/dev/null; then
-    # sed with a delimiter unlikely to appear in URLs/keys
-    sed -i.bak "s#^${key}=.*#${key}=${val}#" "$file" && rm -f "${file}.bak"
-  else
-    printf '%s=%s\n' "$key" "$val" >> "$file"
-  fi
+  grep -v "^${key}=" "$file" > "$tmp" || true
+  printf '%s=%s\n' "$key" "$val" >> "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$file"
 }
 
 materialize_hindsight_wiring() {
