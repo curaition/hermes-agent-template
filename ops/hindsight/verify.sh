@@ -10,8 +10,11 @@ pass() { echo "PASS  $*"; }; fail() { echo "FAIL  $*"; rc=1; }; warn() { echo "W
 hdr=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream')
 auth=(-H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}")
 LIST='{"jsonrpc":"2.0","method":"tools/list","id":1}'
+# Stateful Streamable HTTP (Hindsight 0.9.x): initialize → Mcp-Session-Id, carried on every later call.
+INIT='{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"verify.sh","version":"1"}}}'
+sid() { curl -sS -D - -o /dev/null -X POST "$1" "${hdr[@]}" "${auth[@]}" -d "$INIT" | awk 'tolower($1)=="mcp-session-id:"{print $2}' | tr -d '\r'; }
 unwrap() { local raw; raw="$(cat)"; if grep -q '^data:' <<<"$raw"; then sed -n 's/^data: *//p' <<<"$raw" | tail -1; else printf '%s' "$raw"; fi; }
-call() { local a="${2:-}"; [ -n "$a" ] || a='{}'; curl -sS -X POST "${URL}/mcp/${BANK}/" "${hdr[@]}" "${auth[@]}" -d "$(jq -cn --arg t "$1" --argjson a "$a" '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:$t,arguments:$a}}')" | unwrap | jq -r '.result.content[0].text // empty'; }
+call() { local a="${2:-}"; [ -n "$a" ] || a='{}'; curl -sS -X POST "${URL}/mcp/${BANK}/" "${hdr[@]}" "${auth[@]}" -H "Mcp-Session-Id: ${BANK_SID}" -d "$(jq -cn --arg t "$1" --argjson a "$a" '{jsonrpc:"2.0",id:1,method:"tools/call",params:{name:$t,arguments:$a}}')" | unwrap | jq -r '.result.content[0].text // empty'; }
 
 # 1. firewall
 if [ "${SKIP_NMAP:-0}" = 1 ]; then warn "firewall: nmap skipped"; else
@@ -27,7 +30,9 @@ case "$URL" in https://*)
 # 3. auth gate
 c="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$URL/mcp/" "${hdr[@]}" -d "$LIST")"
 [ "$c" = 401 ] && pass "auth: unauthenticated tools/list → 401" || fail "auth: unauthenticated tools/list → $c (want 401)"
-c="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$URL/mcp/" "${hdr[@]}" "${auth[@]}" -d "$LIST")"
+ROOT_SID="$(sid "$URL/mcp/")"; BANK_SID="$(sid "$URL/mcp/${BANK}/")"
+[ -n "$ROOT_SID" ] && pass "auth: bearer initialize → session" || fail "auth: bearer initialize returned no Mcp-Session-Id"
+c="$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$URL/mcp/" "${hdr[@]}" "${auth[@]}" -H "Mcp-Session-Id: ${ROOT_SID}" -d "$LIST")"
 [ "$c" = 200 ] && pass "auth: bearer tools/list → 200" || fail "auth: bearer tools/list → $c"
 # 4-6. bank shape
 b="$(call get_bank)"; if [ -n "$b" ] && ! grep -qi 'no such bank\|not found' <<<"$b"; then pass "bank: ${BANK} exists"; else fail "bank: ${BANK} missing"; fi
@@ -39,6 +44,6 @@ for id in refactor-landscape proposal-outcomes; do
   [ "${len:-0}" -gt 0 ] && pass "mental model $id: non-empty" || warn "mental model $id: empty (expected before first consolidation; re-check after Hermes has retained + consolidated)"
 done
 # 8. lockdown
-tools="$(curl -sS -X POST "$URL/mcp/${BANK}/" "${hdr[@]}" "${auth[@]}" -d "$LIST" | unwrap | jq -r '.result.tools[].name' 2>/dev/null | tr '\n' ' ')"
+tools="$(curl -sS -X POST "$URL/mcp/${BANK}/" "${hdr[@]}" "${auth[@]}" -H "Mcp-Session-Id: ${BANK_SID}" -d "$LIST" | unwrap | jq -r '.result.tools[].name' 2>/dev/null | tr '\n' ' ')"
 if grep -qw retain <<<"$tools" && ! grep -qw delete_directive <<<"$tools" && ! grep -qw update_bank <<<"$tools"; then pass "lockdown: bank tool surface has no delete/admin tools"; else fail "lockdown: tool surface = [$tools]"; fi
 exit $rc

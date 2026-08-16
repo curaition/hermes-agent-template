@@ -123,7 +123,8 @@ set_env HINDSIGHT_TENANT_API_KEY "$HINDSIGHT_TENANT_API_KEY"
 set_env OPENAI_API_KEY "$OPENAI_API_KEY"
 
 # 6. start / restart, then poll
-if [ "$created_service" = 1 ]; then co "$API/services/${svc_uuid}/start" >/dev/null; else co "$API/services/${svc_uuid}/restart" >/dev/null; fi
+# Coolify 4.3.x: start/restart are POST (GET → 405; verified live 2026-08-16).
+if [ "$created_service" = 1 ]; then co -X POST "$API/services/${svc_uuid}/start" >/dev/null; else co -X POST "$API/services/${svc_uuid}/restart" >/dev/null; fi
 i=0; st=""
 while [ $i -lt "$POLL_MAX" ]; do
   st="$(co "$API/services/${svc_uuid}" | jq -r '.status // ""')"

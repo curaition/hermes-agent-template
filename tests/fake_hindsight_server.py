@@ -3,7 +3,10 @@
 import json, os, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-STATE = {"banks": {}}
+STATE = {"banks": {}, "sessions": []}
+# Real Hindsight (0.9.x) MCP is stateful Streamable HTTP: `initialize` mints an Mcp-Session-Id
+# and every later request must carry it (else 400 "Missing session ID"). Mirrored here so the
+# scripts' handshake is exercised, not assumed. (Part B finding, 2026-08-16.)
 # When set, 200 JSON-RPC responses (tools/list, tools/call) are emitted as SSE instead of plain
 # JSON, so tests can exercise bootstrap_hindsight.sh's _unwrap SSE branch end-to-end.
 SSE = os.environ.get("FAKE_HINDSIGHT_SSE") == "1"
@@ -22,14 +25,18 @@ class H(BaseHTTPRequestHandler):
         body = json.dumps(obj).encode()
         self.send_response(code); self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
-    def _send_rpc(self, code, obj):
+    def _send_rpc(self, code, obj, extra_headers=None):
         # tools/list and tools/call 200 JSON-RPC responses only; 401/404/__state stay plain JSON.
         if SSE and code == 200:
             payload = ("event: message\ndata: " + json.dumps(obj) + "\n\n").encode()
             self.send_response(code); self.send_header("Content-Type", "text/event-stream")
+            for k, v in (extra_headers or {}).items(): self.send_header(k, v)
             self.send_header("Content-Length", str(len(payload))); self.end_headers(); self.wfile.write(payload)
             return
-        self._send(code, obj)
+        body = json.dumps(obj).encode()
+        self.send_response(code); self.send_header("Content-Type", "application/json")
+        for k, v in (extra_headers or {}).items(): self.send_header(k, v)
+        self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
     def do_GET(self):
         if self.path == "/__state": return self._send(200, STATE)
         self._send(404, {})
@@ -47,6 +54,12 @@ class H(BaseHTTPRequestHandler):
         allowed = (bank or {}).get("config", {}).get("mcp_enabled_tools") if bank else None
         tools = allowed if allowed else ALL_TOOLS
         rid = req.get("id", 1)
+        if req.get("method") == "initialize":
+            sid = "sess%d" % (len(STATE["sessions"]) + 1); STATE["sessions"].append(sid)
+            return self._send_rpc(200, {"jsonrpc":"2.0","id":rid,"result":{"protocolVersion":"2025-03-26","capabilities":{},
+                                        "serverInfo":{"name":"fake-hindsight","version":"0.9.1"}}}, {"Mcp-Session-Id": sid})
+        if self.headers.get("Mcp-Session-Id") not in STATE["sessions"]:
+            return self._send(400, {"jsonrpc":"2.0","id":"server-error","error":{"code":-32600,"message":"Bad Request: Missing session ID"}})
         if req.get("method") == "tools/list":
             return self._send_rpc(200, {"jsonrpc":"2.0","id":rid,"result":{"tools":[{"name":t} for t in tools]}})
         if req.get("method") != "tools/call": return self._send(400, {"error":"bad method"})
