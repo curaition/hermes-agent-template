@@ -6,13 +6,16 @@ mkdir -p "$tmp/bin"; cat > "$tmp/bin/hermes" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" | tr '\n' ' ' >> "$FAKE_HERMES_LOG"; echo >> "$FAKE_HERMES_LOG"
 case "$1 $2" in
-  "cron list") cat "${FAKE_HERMES_LIST:-/dev/null}";;
+  # The real CLI hides PAUSED jobs unless --all is passed. FAKE_HERMES_LIST is the
+  # full roster (--all); FAKE_HERMES_LIST_ACTIVE is the active-only subset.
+  "cron list") if [ "${3:-}" = "--all" ]; then cat "${FAKE_HERMES_LIST:-/dev/null}"; else cat "${FAKE_HERMES_LIST_ACTIVE:-/dev/null}"; fi;;
   "cron create") n=$(( $(wc -l < "$FAKE_HERMES_LOG") )); echo "Created job: job_$n"; echo "  Name: x";;
   "cron pause") if [ "${FAKE_HERMES_PAUSE_FAIL:-0}" = "1" ]; then exit 7; fi; echo "paused";;
 esac
 EOF
-chmod +x "$tmp/bin/hermes"; export PATH="$tmp/bin:$PATH" FAKE_HERMES_LOG="$tmp/log" FAKE_HERMES_LIST="$tmp/list"
-: > "$FAKE_HERMES_LOG"; : > "$FAKE_HERMES_LIST"
+chmod +x "$tmp/bin/hermes"; export PATH="$tmp/bin:$PATH" FAKE_HERMES_LOG="$tmp/log" \
+  FAKE_HERMES_LIST="$tmp/list" FAKE_HERMES_LIST_ACTIVE="$tmp/list_active"
+: > "$FAKE_HERMES_LOG"; : > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LIST_ACTIVE"
 PROMPTS_DIR="$here/../ops/hermes/prompts" bash "$here/../ops/hermes/cron_install.sh" >/dev/null
 grep -q '^cron create 0 2 \* \* 1,3,5 .*--name hermes-scout --deliver telegram --workdir /data/work/curaition' "$FAKE_HERMES_LOG" || { echo "FAIL scout create"; cat "$FAKE_HERMES_LOG"; exit 1; }
 grep -q '^cron create 0 3 \* \* 0 .*--name hermes-hygiene --deliver telegram --workdir /data/work/curaition' "$FAKE_HERMES_LOG" || { echo "FAIL hygiene create"; exit 1; }
@@ -20,10 +23,17 @@ grep -q '^cron create 0 4 \* \* \* .*--name hermes-atlas --deliver telegram --wo
 [ "$(grep -c '^cron pause job_' "$FAKE_HERMES_LOG")" = 3 ] || { echo "FAIL pause count"; cat "$FAKE_HERMES_LOG"; exit 1; }
 grep -q 'atlas.sh next --count 3' "$FAKE_HERMES_LOG" || { echo "FAIL atlas prompt not passed"; exit 1; }
 grep -q 'MEMORY TIER UNAVAILABLE' "$FAKE_HERMES_LOG" || { echo "FAIL prompt content not passed"; exit 1; }
-# idempotent
-printf 'hermes-scout\nhermes-hygiene\nhermes-atlas\n' > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LOG"
+# idempotent — jobs already present and ACTIVE
+printf 'hermes-scout\nhermes-hygiene\nhermes-atlas\n' | tee "$FAKE_HERMES_LIST" > "$FAKE_HERMES_LIST_ACTIVE"; : > "$FAKE_HERMES_LOG"
 PROMPTS_DIR="$here/../ops/hermes/prompts" bash "$here/../ops/hermes/cron_install.sh" >/dev/null
 grep -q 'cron create' "$FAKE_HERMES_LOG" && { echo "FAIL not idempotent"; exit 1; }
+
+# the guard must see PAUSED jobs too: every job this installer creates is paused, so a
+# guard reading the active-only list re-creates all three on the next run
+printf 'hermes-scout\nhermes-hygiene\nhermes-atlas\n' > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LIST_ACTIVE"; : > "$FAKE_HERMES_LOG"
+PROMPTS_DIR="$here/../ops/hermes/prompts" bash "$here/../ops/hermes/cron_install.sh" >/dev/null
+grep -q '^cron list --all' "$FAKE_HERMES_LOG" || { echo "FAIL guard did not query --all"; cat "$FAKE_HERMES_LOG"; exit 1; }
+[ "$(grep -c '^cron create' "$FAKE_HERMES_LOG")" = 0 ] || { echo "FAIL duplicated paused jobs"; cat "$FAKE_HERMES_LOG"; exit 1; }
 
 # idempotency must be an exact-name (token) match, not a substring
 printf 'hermes-scout-old\n' > "$FAKE_HERMES_LIST"; : > "$FAKE_HERMES_LOG"

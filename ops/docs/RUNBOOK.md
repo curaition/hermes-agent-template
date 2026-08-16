@@ -318,7 +318,10 @@ Unchanged from the previous iteration:
   bearer `HINDSIGHT_API_KEY`, include ⊆ the 15-tool lockdown) and the prompts
   call `mcp_hindsight_reflect` / `_retain` / `_get_mental_model` explicitly.
   Also: paused jobs are NOT fired by `hermes cron run` — for a manual pass do
-  `resume` → `run` → (wait until `last_run_at` moves) → `pause`.
+  `resume` → `run` → (wait until `last_run_at` moves) → `pause`. And **`hermes cron
+  list` hides paused jobs** — always `--all` when checking what exists, or the
+  installed-and-paused jobs look absent (this blinded `cron_install.sh`'s duplicate
+  guard until 2026-08-16; it now queries `--all`).
 - **Cron:** `ops/hermes/cron_install.sh` creates all three jobs and leaves them
   PAUSED — scout `0 2 * * 1,3,5`, hygiene `0 3 * * 0`, atlas `0 4 * * *`, all
   `--deliver telegram --workdir /data/work/curaition`. Run a manual pass
