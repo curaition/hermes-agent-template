@@ -89,7 +89,7 @@ def test_atlas_prompt_binds_the_agent_to_the_queue_and_the_evidence_gate():
     assert "mcp_hindsight_" in p and "NO memory plugin" in p
     # tickets are capped and deduped, dossiers are the deliverable
     assert "at most **2 for the whole run**" in p
-    assert "hermes-proposed" in p and "gh pr list" in p
+    assert "hermes" in p and "gh pr list" in p
 
 
 def test_atlas_prompt_gates_absence_claims_and_marks_doc_provenance():
@@ -123,3 +123,29 @@ def test_atlas_scripts_ship_in_the_image():
     assert "COPY bootstrap/ /app/bootstrap/" in (root / "Dockerfile").read_text()
     for f in ("atlas.sh", "seed_coverage.sh"):
         assert (root / "bootstrap" / "atlas" / f).exists()
+
+
+def test_every_ticket_carries_hermes_plus_exactly_one_area_label():
+    """A ticket with only `hermes` lands in a backlog nobody filters by.
+
+    The label was renamed `hermes-proposed` -> `hermes` on 2026-08-16 and 11 area
+    labels were added to team CUR, so the ticket-filing prompts must (a) name both
+    labels, (b) forbid inventing new ones — GUARDRAILS rule 2 already bans
+    relabelling, and a fresh label is taxonomy invented unilaterally.
+    """
+    guard = (OPS.parent / "GUARDRAILS.md").read_text()
+    assert "hermes-proposed" not in guard          # single vocabulary, no stragglers
+    assert "**Labels: `hermes` plus exactly ONE area label**" in guard
+    assert "Never create a new label" in guard
+
+    for name in ("atlas.md", "scout.md"):
+        p = (OPS / "prompts" / name).read_text()
+        assert "hermes-proposed" not in p
+        assert "`hermes`" in p
+        # the area vocabulary is enumerated in the prompt, not left to invention
+        for area in ("video-pipeline", "data-model", "infra-ci", "entities", "web-api"):
+            assert f"`{area}`" in p, f"{name} is missing area label {area}"
+        assert "never invent" in p or "never create a new label" in p.lower()
+
+    hygiene = (OPS / "prompts" / "hygiene.md").read_text()
+    assert "labelled `hermes`" in hygiene and "hermes-proposed" not in hygiene

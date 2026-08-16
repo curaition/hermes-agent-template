@@ -28,7 +28,7 @@ Hetzner box (Coolify)                        ← long-term home for everything
 - [ ] Create DNS A record(s) → box IP
 - [ ] GCS: create HMAC key on a bucket-scoped service account (§3.3), note access key/secret
 - [ ] GitHub: create machine account + fine-grained PAT (`curaition-xyz/curaition`, Contents: Read + Metadata: Read only); audit/rotate the existing `GH_TOKEN` on Railway down to this
-- [ ] Linear: create the `hermes-proposed` label in team CUR; decide whether Hermes gets a dedicated Linear identity; be available for the OAuth paste-back during phase 7
+- [x] Linear: create the `hermes` label in team CUR (done — created as `hermes-proposed`, renamed to `hermes` 2026-08-16 alongside 11 new area labels); decide whether Hermes gets a dedicated Linear identity; be available for the OAuth paste-back during phase 7
 - [ ] Confirm Gemini AI Studio key available for Hindsight extraction
 
 ### 0.2 Execution phases (in order; each gate must pass before the next)
@@ -283,7 +283,7 @@ directives/models are managed by you, not by it.)
 Unchanged from the previous iteration:
 
 - **Linear:** verify `HERMES_MCP_LINEAR_JSON` → `https://mcp.linear.app/mcp`
-  (OAuth, headless paste-back, tokens on `/data`). Create the `hermes-proposed`
+  (OAuth, headless paste-back, tokens on `/data`). Create the `hermes`
   label in team CUR once. Trim to: `list_issues`/`search`, `get_issue`,
   `save_issue`, `list_issue_labels`, `save_comment`. Consider a dedicated
   Linear identity for attribution/revocation.
@@ -368,7 +368,7 @@ by-product — the scout finds defects, the sweep builds the map the scout reads
 - [x] 2026-08-16 — Bank `hermes-agent` exists; 3 directives listed; both mental models present with `trigger.tags_match=any` and non-empty (`verify.sh` PASS)
 - [x] 2026-08-16 — From a Hermes chat (Telegram): TANGERINE-42 retained into bank `hermes-agent` (doc `20260816_132658_9ba35e86`) and recalled; server log shows Hermes auto-recall + auto-retain on both turns. NB: `hermes -z` one-shots do NOT exercise the plugin (background retain/prefetch, no shutdown) — test via the gateway only
 - [x] 2026-08-16 — GBrain: `code_callers` returns real call sites (via Hermes: `_compute_smart_limit` → 13 callers, `code_def _select_due_sources` → `social_tasks.py:119`). Built by **laptop-driven import into the production brain** (CUR-1406 option 1): `gbrain sources add curaition --path ~/Projects/gbrain-src/curaition --federated` (clean `staging` clone) → `gbrain sync --source curaition --repo … --strategy code --no-pull --workers 4` (4,575 files, ~$0.02 embed) → `gbrain extract --stale` → `gbrain edges-backfill --source curaition` looped until `0 chunks walked` (~36k chunks). Two permanent caveats, both written into GUARDRAILS: remote clients must pass `source_id: "curaition"` (bearer tokens default to `default`), and the tree-sitter chunker in gbrain 0.42.53 skips `decorated_definition` (Celery tasks, routes, fixtures) — "no callers" is never dead-code evidence. **Re-sync (before scout runs / weekly):** `cd ~/Projects/gbrain-src/curaition && git pull && GBRAIN_DATABASE_URL=… gbrain sync --source curaition --repo "$PWD" --strategy code --no-pull && gbrain edges-backfill --source curaition` (repeat backfill until 0 walked)
-- [ ] Hermes files a test issue: `hermes-proposed` label, file:line + SHA evidence, no dupe — waits on CUR-1406 (label `hermes-proposed` exists in team CurAItion; cron jobs installed paused: scout `f95d0dc87999`, hygiene `ce07cb27de73`)
+- [x] Hermes files a test issue: `hermes` + area label, file:line + SHA evidence, no dupe — DONE 2026-08-16 (CUR-1407..1411 filed by the atlas sweep; label renamed `hermes-proposed` → `hermes` and 11 area labels added the same day). Cron jobs: atlas `e88814e07b7a` LIVE `0 4 * * *`; scout `f95d0dc87999`, hygiene `ce07cb27de73` still paused
 - [x] 2026-08-16 — Push attempt from the Hermes box fails: `git push origin hermes-push-probe` → 403 "Write access to repository not granted" (fine-grained PAT, Contents:R + Metadata:R); fetch works; clone at `/data/work/curaition`
 - [x] 2026-08-16 — Hermes lists exactly the 21 allowlisted GBrain tools + `hindsight_retain/recall/reflect` + built-in `memory`; no `delete_*`, `forget_fact`, `revert_version`, `restore_page`, `schema_apply_mutations`, `clear_memories`, `update_bank`
 - [x] 2026-08-16 — Redeploy Hermes (GH_TOKEN rotation redeploy): provider, 4 MCP servers, Linear tokens, `/data/work/curaition`, SOUL.md all survived
