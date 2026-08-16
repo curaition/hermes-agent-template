@@ -1,4 +1,5 @@
 import json
+import pathlib
 from pathlib import Path
 import yaml
 
@@ -37,3 +38,22 @@ def test_env_example_has_no_values():
             assert v.strip() in ("", "<set-me>", "<b64 of ops/hermes/mcp_servers.yaml>",
                                  "<b64 of ops/hermes/hindsight.config.json with <zone> substituted>",
                                  "<b64 of ops/GUARDRAILS.md>", "hindsight"), line
+
+
+def test_render_soul_is_persona_plus_guardrails(tmp_path):
+    import subprocess
+    root = pathlib.Path(__file__).resolve().parents[1]
+    out = subprocess.run(["bash", str(root / "ops/hermes/render_soul.sh")], check=True, capture_output=True, text=True).stdout
+    prefix = (root / "ops/hermes/soul_prefix.md").read_text()
+    guard = (root / "ops/GUARDRAILS.md").read_text()
+    assert out.startswith(prefix)
+    assert out.endswith(guard)
+    assert "Hard rules" in out
+
+
+def test_start_sh_reapplies_soul_every_boot_and_leaves_user_md_write_once():
+    root = pathlib.Path(__file__).resolve().parents[1]
+    s = (root / "start.sh").read_text()
+    assert 'HERMES_SOUL_MD' in s and 'SOUL.md.tmp' in s and 'mv /data/.hermes/SOUL.md.tmp /data/.hermes/SOUL.md' in s
+    # USER.md stays write-once (agent-written profile, 1,375-char cap)
+    assert 'if [ ! -f /data/.hermes/memories/USER.md ] && [ -n "${HERMES_USER_MD}" ]' in s

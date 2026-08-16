@@ -156,7 +156,7 @@ the plugin; the Dockerfile's `[hindsight]` extra already installs the client —
 
 `railway.toml`: `watchPatterns = ["**", "!/ops/**", "!/**/*.md"]` (D2).
 
-`ops/GUARDRAILS.md` = current `HERMES_GUARDRAILS.md`, set as `HERMES_USER_MD`.
+`ops/GUARDRAILS.md` = current `HERMES_GUARDRAILS.md`, delivered as `HERMES_SOUL_MD` (persona prefix + guardrails → `/data/.hermes/SOUL.md`, re-applied every boot). *Deviation recorded 2026-08-16:* the spec said `HERMES_USER_MD`; live data showed `USER.md` is the agent-written profile (1,375-char cap, real content on the volume), so SOUL.md is the correct surface.
 
 ### 4.6 GBrain trim (Hermes MCP config)
 

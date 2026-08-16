@@ -72,7 +72,16 @@ materialize_hindsight_wiring "$root"
 
 # start.sh must actually wire this in — source it and call it unconditionally
 # on every boot, not just leave the function defined and unused.
-grep -q '^materialize_hindsight_wiring /data$' "$here/../start.sh" || fail "start.sh does not call materialize_hindsight_wiring /data"
+grep -q '^materialize_hindsight_wiring /data || echo "WARN' "$here/../start.sh" || fail "start.sh must call materialize_hindsight_wiring /data with a fail-open || guard (set -e would crash-loop the gateway on a bad env paste)"
+
+# a broken HERMES_MCP_SERVERS_YAML must fail LOUDLY (non-zero) and leave config.yaml unchanged
+root="$(mktemp -d)"; mkdir -p "$root/.hermes"; printf 'memory:\n  provider: auto\nmcp_servers: {}\n' > "$root/.hermes/config.yaml"
+cp "$root/.hermes/config.yaml" "$root/before.yaml"
+unset HERMES_HINDSIGHT_CONFIG_JSON HINDSIGHT_API_KEY HINDSIGHT_API_URL HERMES_MEMORY_PROVIDER
+export HERMES_MCP_SERVERS_YAML='!!!not-base64!!!'
+if materialize_hindsight_wiring "$root" 2>/dev/null; then fail "broken mcp yaml b64 accepted (rc 0)"; fi
+cmp -s "$root/before.yaml" "$root/.hermes/config.yaml" || fail "config.yaml changed on patcher failure"
+unset HERMES_MCP_SERVERS_YAML
 grep -q '^source /app/bootstrap/hindsight_wiring.sh$' "$here/../start.sh" || fail "start.sh does not source hindsight_wiring.sh"
 
 echo "PASS test_hindsight_wiring"

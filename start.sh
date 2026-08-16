@@ -79,6 +79,19 @@ if [ ! -f /data/.hermes/memories/USER.md ] && [ -n "${HERMES_USER_MD}" ]; then
   printf '%s' "${HERMES_USER_MD}" | base64 -d > /data/.hermes/memories/USER.md
 fi
 
+# SOUL.md (Hermes's system persona) is env-declared and RE-APPLIED every boot — env is the
+# truth, like the Hindsight wiring below. Content: `bash ops/hermes/render_soul.sh | base64`.
+# Decode failures leave the existing file untouched (a bad paste must not brick the gateway).
+if [ -n "${HERMES_SOUL_MD:-}" ]; then
+  if printf '%s' "${HERMES_SOUL_MD}" | tr -d ' \n\r' | base64 -d > /data/.hermes/SOUL.md.tmp 2>/dev/null \
+     && [ -s /data/.hermes/SOUL.md.tmp ]; then
+    mv /data/.hermes/SOUL.md.tmp /data/.hermes/SOUL.md
+  else
+    echo "WARN: HERMES_SOUL_MD is not valid base64 (or empty) — keeping existing /data/.hermes/SOUL.md" >&2
+    rm -f /data/.hermes/SOUL.md.tmp
+  fi
+fi
+
 # Bootstrap custom skills from env var (base64-encoded tar.gz).
 # Export your local skills:
 #   HERMES_SKILLS_TARGZ=$(tar -czf - -C ~/.hermes/skills . | base64)
@@ -104,7 +117,9 @@ fi
 # rather than starting a gateway with half-applied wiring.
 # shellcheck source=bootstrap/hindsight_wiring.sh
 source /app/bootstrap/hindsight_wiring.sh
-materialize_hindsight_wiring /data
+# Fail OPEN: a bad env paste must degrade to "memory tier unavailable" (GUARDRAILS rule 7),
+# never crash-loop the gateway. start.sh runs under `set -e`, so the guard is required.
+materialize_hindsight_wiring /data || echo "WARN: hindsight wiring failed (rc=$?) — gateway starts without the memory-tier changes" >&2
 
 # Clear any stale gateway PID file left over from the previous container.
 # `hermes gateway` writes /data/.hermes/gateway.pid on start but does not

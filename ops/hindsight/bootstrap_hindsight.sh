@@ -13,13 +13,31 @@ BANK="hermes-agent"; LOCKDOWN=0
 [ "${1:-}" = "--lockdown" ] && LOCKDOWN=1
 URL="${HINDSIGHT_URL%/}"
 
+# Hindsight's MCP endpoint is stateful Streamable HTTP (verified live on 0.9.1, 2026-08-16):
+# `initialize` mints an Mcp-Session-Id header and every later request on that path must carry
+# it, or the server answers 400 "Missing session ID". One session per path is memoised below
+# (bash 3.2: no assoc arrays, so two named slots — root and bank — are enough for this script).
+_INIT='{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"bootstrap_hindsight.sh","version":"1"}}}'
+_SID_ROOT=""; _SID_BANK=""
+_sid() { # _sid PATH → session id for that path (authenticated initialize, memoised)
+  local path="$1" slot sid
+  case "$path" in /mcp/|/mcp) slot=ROOT;; *) slot=BANK;; esac
+  eval "sid=\${_SID_$slot}"
+  if [ -z "$sid" ]; then
+    sid="$(curl -sS -D - -o /dev/null -X POST "${URL}${path}" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+      -H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}" -d "$_INIT" | awk 'tolower($1)=="mcp-session-id:"{print $2}' | tr -d '\r')"
+    [ -n "$sid" ] || { echo "initialize on ${path} returned no Mcp-Session-Id" >&2; return 1; }
+    eval "_SID_$slot=\$sid"
+  fi
+  printf '%s' "$sid"
+}
 _post() { # _post PATH JSON [auth] → response body, then a trailing line with the HTTP status
   local path="$1" body="$2" auth="${3:-1}"; local -a hdr=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream')
-  [ "$auth" = 1 ] && hdr+=(-H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}")
+  if [ "$auth" = 1 ]; then local sid; sid="$(_sid "$path")" || return 1; hdr+=(-H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}" -H "Mcp-Session-Id: ${sid}"); fi
   curl -sS -X POST "${URL}${path}" "${hdr[@]}" -d "$body" -w '\n%{http_code}'
 }
 _status() { local path="$1" body="$2" auth="${3:-1}"; local -a hdr=(-H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream')
-  [ "$auth" = 1 ] && hdr+=(-H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}")
+  if [ "$auth" = 1 ]; then local sid; sid="$(_sid "$path")" || { printf '000'; return 0; }; hdr+=(-H "Authorization: Bearer ${HINDSIGHT_TENANT_API_KEY}" -H "Mcp-Session-Id: ${sid}"); fi
   curl -sS -o /dev/null -w '%{http_code}' -X POST "${URL}${path}" "${hdr[@]}" -d "$body"; }
 _unwrap() { # stdin: JSON or SSE → the JSON-RPC message
   local raw; raw="$(cat)"
@@ -70,7 +88,7 @@ add_directive human-driver-areas "Celery task signatures and beat schedule, data
 add_directive feedback-over-priors "When human review feedback conflicts with your own assessment of a proposal, weight the feedback above your priors and record the delta as a learning." 90
 
 echo "== mental models (tags_match any — tagged models default to all_strict and come back EMPTY) =="
-havem="$(mcp "/mcp/${BANK}/" list_mental_models '{}' | jq -r '(.mental_models // .items // .)[]?.mental_model_id // empty')"
+havem="$(mcp "/mcp/${BANK}/" list_mental_models '{}' | jq -r '(.mental_models // .items // .)[]? | (.id // .mental_model_id) // empty')"
 add_model() { # id name query tags-json
   if grep -qx "$1" <<<"$havem"; then echo "  = $1"; return; fi
   mcp "/mcp/${BANK}/" create_mental_model "$(jq -cn --arg id "$1" --arg n "$2" --arg q "$3" --argjson t "$4" \

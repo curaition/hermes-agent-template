@@ -36,7 +36,7 @@ for k in HINDSIGHT_VERSION HINDSIGHT_API_DATABASE_URL GEMINI_API_KEY HINDSIGHT_L
 done
 # R1: coolify_apply.sh converts postgres:// -> postgresql:// (Hindsight expects postgresql://)
 grep '"key":"HINDSIGHT_API_DATABASE_URL"' "$FAKE_CURL_LOG" | grep -q 'postgresql://hindsight_user:dbpw@db1:5432/hindsight_db' || fail "db url from internal_db_url"
-grep -q '^GET https://coolify.example/api/v1/services/svc1/start ' "$FAKE_CURL_LOG" || fail "start"
+grep -q '^POST https://coolify.example/api/v1/services/svc1/start ' "$FAKE_CURL_LOG" || fail "start"
 # shellcheck disable=SC2015 # intentional: fail() exits 1, so C only runs when A or B did not match
 grep -q '^SERVICE_UUID=svc1$' "$tmp/state.env" && grep -q '^DB_UUID=db1$' "$tmp/state.env" || fail "state file"
 
@@ -49,7 +49,7 @@ bash "$here/../ops/hindsight/coolify_apply.sh" >/dev/null
 grep -q '^POST https://coolify.example/api/v1/projects ' "$FAKE_CURL_LOG" && fail "re-created project"
 grep -q '^POST https://coolify.example/api/v1/databases/postgresql ' "$FAKE_CURL_LOG" && fail "re-created db"
 grep -q '^POST https://coolify.example/api/v1/services ' "$FAKE_CURL_LOG" && fail "re-created service"
-grep -q '/services/svc1/restart ' "$FAKE_CURL_LOG" || fail "restart on re-run"
+grep -q '^POST https://coolify.example/api/v1/services/svc1/restart ' "$FAKE_CURL_LOG" || fail "restart on re-run"
 
 # Conflict path: env POST returns 409 -> falls back to PATCH (project/db/svc still exist from the re-run above)
 # Note: FAKE_CURL_STATUS also makes the connect_to_docker_network PATCH report 409 -> WARN on stderr; that's expected, not a failure.
