@@ -10,6 +10,10 @@ mkdir -p /data/.hermes/cron /data/.hermes/sessions /data/.hermes/logs \
          /data/.hermes/hooks /data/.hermes/image_cache /data/.hermes/audio_cache \
          /data/.hermes/workspace /data/.hermes/skins /data/.hermes/plans \
          /data/.hermes/home
+# The atlas sweep keeps its coverage queue on the volume (state), while the scripts
+# that read and mutate it ship in the image (code) — so a redeploy can never leave
+# stale bookkeeping logic behind, and a rebuild can never wipe the queue.
+mkdir -p /data/work/atlas
 
 # Stamp the install method as "docker" so hermes treats this as an immutable
 # container image, not a pip checkout. hermes's detect_install_method() reads

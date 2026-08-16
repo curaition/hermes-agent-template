@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Create the two Hermes cron jobs, PAUSED (spec D8). Run INSIDE the Hermes container:
+# Create the three Hermes cron jobs, PAUSED (spec D8). Run INSIDE the Hermes container:
 #   scp -r ops/hermes/prompts railway-hermes-agent:/data/work/prompts   (or paste)
 #   ssh railway-hermes-agent 'PROMPTS_DIR=/data/work/prompts bash -s' < ops/hermes/cron_install.sh
 # Unpause when ready: hermes cron resume <id>. Manual run: hermes cron run <id>.
 set -euo pipefail
 PROMPTS_DIR="${PROMPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/prompts}"
 WORKDIR="${WORKDIR:-/data/work/curaition}"
-for f in scout.md hygiene.md; do
+for f in scout.md hygiene.md atlas.md; do
   [ -s "$PROMPTS_DIR/$f" ] || { echo "missing/empty prompt: $PROMPTS_DIR/$f" >&2; exit 1; }
 done
 existing="$(hermes cron list 2>/dev/null || true)"
@@ -22,4 +22,7 @@ mk() { # mk NAME SCHEDULE PROMPTFILE
 }
 mk hermes-scout   "0 2 * * 1,3,5" scout.md
 mk hermes-hygiene "0 3 * * 0"     hygiene.md
+# atlas walks the module queue daily at 04:00 UTC (after the 02:00 scout, off-peak);
+# 3 modules/run covers the 90-unit tree in ~30 days, then flips to revisit mode.
+mk hermes-atlas   "0 4 * * *"     atlas.md
 echo "next: hermes cron run <scout-id> for a manual pass; hermes cron resume <id> when trusted."

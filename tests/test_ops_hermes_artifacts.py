@@ -72,3 +72,37 @@ def test_start_sh_syncs_terminal_home_git_credentials_from_gh_token():
     assert "> \"${TERM_HOME}/.git-credentials\"" in s and 'umask 077' in s
     assert 'helper = store --file=/data/.hermes/home/.git-credentials' in s
     assert 'env -u GH_TOKEN HOME="${TERM_HOME}" gh auth login --with-token' in s
+
+
+def test_atlas_prompt_binds_the_agent_to_the_queue_and_the_evidence_gate():
+    p = (OPS / "prompts" / "atlas.md").read_text()
+    # the queue assigns work; the agent may not pick its own modules
+    assert "/app/bootstrap/atlas/seed_coverage.sh" in p
+    assert "atlas.sh next --count 3" in p
+    assert "never substitute your own picks" in p
+    # recording a module requires the evidence the helper enforces
+    assert "--sha <SHA> --page <slug> --evidence <path:line>" in p
+    assert "do not mark it done" in p
+    # the traps we have already paid for once
+    assert 'source_id: "curaition"' in p and "not_built" in p
+    assert "git grep -n <symbol> -- src tests scripts alembic" in p
+    assert "mcp_hindsight_" in p and "NO memory plugin" in p
+    # tickets are capped and deduped, dossiers are the deliverable
+    assert "at most **2 for the whole run**" in p
+    assert "hermes-proposed" in p and "gh pr list" in p
+
+
+def test_start_sh_creates_the_atlas_state_dir_on_the_volume():
+    root = pathlib.Path(__file__).resolve().parents[1]
+    s = (root / "start.sh").read_text()
+    assert "mkdir -p /data/work/atlas" in s
+    # the scripts must NOT be copied to the volume — they ship in the image, so a
+    # redeploy can never leave stale bookkeeping logic behind
+    assert "cp" not in s.split("mkdir -p /data/work/atlas")[1].split("\n")[0]
+
+
+def test_atlas_scripts_ship_in_the_image():
+    root = pathlib.Path(__file__).resolve().parents[1]
+    assert "COPY bootstrap/ /app/bootstrap/" in (root / "Dockerfile").read_text()
+    for f in ("atlas.sh", "seed_coverage.sh"):
+        assert (root / "bootstrap" / "atlas" / f).exists()

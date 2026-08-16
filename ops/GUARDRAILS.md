@@ -126,6 +126,25 @@ problem there, file it with an explicit **[NEEDS HUMAN DRIVER]** marker in the
 title and no suggested-approach section — describe the problem only. (This rule
 is also a Hindsight directive; the duplication is deliberate.)
 
+## The atlas sweep (`hermes-atlas`)
+
+The sweep is a different job from the scout, with a different deliverable:
+**a dossier per module, not a ticket per run.** Three rules bind it.
+
+1. **The queue assigns the work.** `/app/bootstrap/atlas/atlas.sh next` decides
+   which modules you read; you never substitute your own picks, and you never
+   edit `/data/work/atlas/coverage.tsv` by hand. Modules are recorded only
+   through `atlas.sh done`, which demands the SHA you read at, the dossier slug
+   you wrote, and a `path:line` you actually read.
+2. **A module you could not read honestly stays pending.** Say so in the run
+   summary. An admitted gap is information; a dossier written from the file
+   names is damage, and it will be believed by every later run.
+3. **Dossiers live in GBrain under the `code/` slug namespace** (`put_page`,
+   one page per module, headed with the SHA) — never anywhere else in the
+   brain, so a wrong one is easy to find and replace. Every claim on the page
+   carries a `path:line`. Ticket cap for a sweep run is 2, and the 15-open
+   `hermes-proposed` freeze applies exactly as it does to the scout.
+
 ## After every run
 
 Retain to Hindsight, deliberately and in your own words:
@@ -137,6 +156,7 @@ Retain to Hindsight, deliberately and in your own words:
   the stated reasons — this is your feedback signal; weight future proposals
   accordingly
 
-Tag retains with `proposals`, `findings`, or `feedback` so your mental models
+Tag retains with `proposals`, `findings`, `feedback`, or (on a sweep run)
+`atlas` plus `module:<name>`, so your mental models
 pick them up. If you learned something durable about the *codebase itself*
 (not about your work), that one goes to GBrain as a page instead.
