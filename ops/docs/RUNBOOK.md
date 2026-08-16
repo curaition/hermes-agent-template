@@ -315,12 +315,12 @@ Unchanged from the previous iteration:
 - [x] 2026-08-16 — `free -h` on the box after the stack is up: swap present (2.0 GiB), no OOM kills in `dmesg`
 - [x] 2026-08-16 — Hindsight unauthenticated request → 401; with bearer → initialize mints a session and tools/list returns the 15-tool locked-down set on `/mcp/hermes-agent/` (`verify.sh` all PASS)
 - [x] 2026-08-16 — Bank `hermes-agent` exists; 3 directives listed; both mental models present with `trigger.tags_match=any` and non-empty (`verify.sh` PASS)
-- [ ] From a Hermes chat: a retained test fact recalls on the next session (proves cross-cloud auto_retain/auto_recall round-trip)
-- [ ] GBrain: `code_callers` on a known function returns real call sites (proves the code index covers the repo — issue quality depends on it)
-- [ ] Hermes files a test issue: `hermes-proposed` label, file:line + SHA evidence, no dupe
-- [ ] Push attempt from Hermes box fails (token verified read-only)
-- [ ] Hermes's tool list contains no destructive GBrain or Hindsight tools
-- [ ] Redeploy Hermes: config, OAuth tokens, clone survive on `/data`
+- [x] 2026-08-16 — From a Hermes chat (Telegram): TANGERINE-42 retained into bank `hermes-agent` (doc `20260816_132658_9ba35e86`) and recalled; server log shows Hermes auto-recall + auto-retain on both turns. NB: `hermes -z` one-shots do NOT exercise the plugin (background retain/prefetch, no shutdown) — test via the gateway only
+- [ ] **BLOCKED (CUR-1406)** — GBrain: `code_callers` on `sync_due_sources` → `not_built`; no repo source registered, and `sources_add --url` cannot work on this GBrain deployment (no `git` in image, ephemeral clone dir, no-credential design). Scout cron stays paused until an import path is chosen (laptop-driven `gbrain sync` into the production DB is the recommended fix)
+- [ ] Hermes files a test issue: `hermes-proposed` label, file:line + SHA evidence, no dupe — waits on CUR-1406 (label `hermes-proposed` exists in team CurAItion; cron jobs installed paused: scout `f95d0dc87999`, hygiene `ce07cb27de73`)
+- [x] 2026-08-16 — Push attempt from the Hermes box fails: `git push origin hermes-push-probe` → 403 "Write access to repository not granted" (fine-grained PAT, Contents:R + Metadata:R); fetch works; clone at `/data/work/curaition`
+- [x] 2026-08-16 — Hermes lists exactly the 21 allowlisted GBrain tools + `hindsight_retain/recall/reflect` + built-in `memory`; no `delete_*`, `forget_fact`, `revert_version`, `restore_page`, `schema_apply_mutations`, `clear_memories`, `update_bank`
+- [x] 2026-08-16 — Redeploy Hermes (GH_TOKEN rotation redeploy): provider, 4 MCP servers, Linear tokens, `/data/work/curaition`, SOUL.md all survived
 - [x] 2026-08-16 — Coolify scheduled backup ran at least once (daily, config `9npip7f8yohk2rkpjaj3znj3`; target = **Hetzner Object Storage** bucket `curaition-hermes-backups` in hel1, Coolify storage `hetzner-hermes-backups` — GCS was replaced by Rick's decision) — and the first dump (125,735 B) was downloaded from the bucket and `pg_restore`d into a scratch DB on the box: rc=0, 23 tables, bank/3 directives/2 mental models present; scratch DB dropped afterwards
 
 ## 8. Migration path (the rest of Railway → Hetzner, later)
