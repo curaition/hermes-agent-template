@@ -319,12 +319,43 @@ Unchanged from the previous iteration:
   call `mcp_hindsight_reflect` / `_retain` / `_get_mental_model` explicitly.
   Also: paused jobs are NOT fired by `hermes cron run` — for a manual pass do
   `resume` → `run` → (wait until `last_run_at` moves) → `pause`.
-- **Cron:** `ops/hermes/cron_install.sh` creates both jobs and leaves them
-  PAUSED — scout `0 2 * * 1,3,5`, hygiene `0 3 * * 0`, both
+- **Cron:** `ops/hermes/cron_install.sh` creates all three jobs and leaves them
+  PAUSED — scout `0 2 * * 1,3,5`, hygiene `0 3 * * 0`, atlas `0 4 * * *`, all
   `--deliver telegram --workdir /data/work/curaition`. Run a manual pass
   (`hermes cron run <id>`) and judge the output before enabling the schedule
   with `hermes cron resume <id>`. Scale only after ~2 weeks of judging issue
   quality — triage attention is the binding resource.
+
+### 6.4 The atlas sweep (`hermes-atlas`)
+
+A daily walk through the codebase that produces **dossiers**, with tickets as a
+by-product — the scout finds defects, the sweep builds the map the scout reads.
+
+- **Split:** code ships in the image (`bootstrap/atlas/{atlas.sh,seed_coverage.sh}`
+  → `/app/bootstrap/atlas/`, refreshed by every deploy), state lives on the volume
+  (`/data/work/atlas/coverage.tsv`, created by `start.sh`). Never copy the scripts
+  to `/data` — that is how you get stale bookkeeping logic surviving a redeploy.
+  Nothing here is an env var, so unlike `HERMES_MCP_SERVERS_YAML` / `HERMES_SOUL_MD`
+  a merge + deploy IS the whole change path.
+- **Queue:** `seed_coverage.sh` derives sweep units from the tree — directories
+  under `src/crypto_newsletter` (depth 1-2) with at least one `.py` **at that
+  level**, ordered by LOC descending. 90 units at `7bc282e76`. Re-running it is
+  safe and expected (the prompt does it every run): done rows keep their history,
+  new modules append as `pending`, vanished ones flip to `gone`.
+- **Handout:** `atlas.sh next --count 3` gives pending modules in queue order;
+  once the lap is done it switches to revisit mode, offering only modules with
+  commits **after the SHA their dossier was written at** (SHA range, not
+  `--since`: `git log --since` is inclusive at second granularity and re-offers a
+  module you just finished). Empty output = queue clean = the run replies `[SILENT]`.
+- **Recording:** `atlas.sh done <module> --sha … --page … --evidence path:line
+  [--tickets CUR-n,CUR-m]`. All four validations are enforced in the script, not
+  the prompt — a run cannot mark a module read without naming the dossier it wrote
+  and a line it read. Tickets accumulate across visits.
+- **Pace:** 3 modules/run daily → first lap ≈ 30 days, then steady-state revisit.
+  Inspect any time with `atlas.sh stats` (`modules N | pending | done | gone | lap %`).
+- **First run:** same dance as the scout — `resume` → `run` → wait → `pause`, then
+  read the dossiers it wrote (`get_page code/<slug>`) before trusting the schedule.
+  Judge the dossiers, not the ticket count.
 
 ## 7. Verification checklist
 

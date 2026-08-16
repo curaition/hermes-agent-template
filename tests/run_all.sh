@@ -14,8 +14,8 @@ for t in tests/test_*.sh; do
   printf '%s\n' "$out" | grep -q '^PASS ' || { echo "FAILED (no PASS line): $t"; printf '%s\n' "$out"; exit 1; }
 done
 
-bash -n start.sh bootstrap/*.sh ops/hindsight/*.sh ops/hermes/*.sh tests/*.sh tests/fakebin/curl
+bash -n start.sh bootstrap/*.sh bootstrap/atlas/*.sh ops/hindsight/*.sh ops/hermes/*.sh tests/*.sh tests/fakebin/curl
 
-shellcheck -x -P SCRIPTDIR start.sh bootstrap/*.sh ops/hindsight/*.sh ops/hermes/*.sh tests/*.sh tests/fakebin/curl
+shellcheck -x -P SCRIPTDIR start.sh bootstrap/*.sh bootstrap/atlas/*.sh ops/hindsight/*.sh ops/hermes/*.sh tests/*.sh tests/fakebin/curl
 
 echo "ALL GREEN"
