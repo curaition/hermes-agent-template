@@ -41,7 +41,7 @@ Hetzner box (Coolify)                        ← long-term home for everything
 | 4 | Auth gate | `verify.sh` (auth lines) | 401/200 — HARD GATE |
 | 5 | Bootstrap bank | `bootstrap_hindsight.sh` → tunnel check → `--lockdown` | `verify.sh` all PASS (models may WARN) |
 | 6 | Backups | `coolify_backup.sh` + one manual restore | dump in bucket AND restore proven |
-| 7 | Hermes wiring | set Railway env per `ops/hermes/env.example` (`HINDSIGHT_API_URL`, `HINDSIGHT_API_KEY`, `HERMES_MEMORY_PROVIDER=hindsight`, `HERMES_HINDSIGHT_CONFIG_JSON`, `HERMES_MCP_SERVERS_YAML`, `HERMES_USER_MD`, read-only `GH_TOKEN`); redeploy | `hermes memory status` shows hindsight; round-trip fact |
+| 7 | Hermes wiring | set Railway env per `ops/hermes/env.example` (`HINDSIGHT_API_URL`, `HINDSIGHT_API_KEY`, `HERMES_MEMORY_PROVIDER=hindsight`, `HERMES_HINDSIGHT_CONFIG_JSON`, `HERMES_MCP_SERVERS_YAML`, `HERMES_SOUL_MD`, `LINEAR_API_KEY`, read-only `GH_TOKEN`); redeploy | `hermes memory status` shows hindsight; round-trip fact |
 | 8 | Cron | `cron_install.sh` + manual run | compliant test issue + Telegram summary |
 | 9 | Full checklist | spec §8 | all boxes |
 | 10 | Observation | 2 weeks Mon/Wed/Fri | judged before scaling |

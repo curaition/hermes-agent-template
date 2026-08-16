@@ -37,7 +37,7 @@ def test_env_example_has_no_values():
             k, _, v = line.partition("=")
             assert v.strip() in ("", "<set-me>", "<b64 of ops/hermes/mcp_servers.yaml>",
                                  "<b64 of ops/hermes/hindsight.config.json with <zone> substituted>",
-                                 "<b64 of ops/GUARDRAILS.md>", "hindsight"), line
+                                 "<b64 of `bash ops/hermes/render_soul.sh`>", "hindsight"), line
 
 
 def test_render_soul_is_persona_plus_guardrails(tmp_path):

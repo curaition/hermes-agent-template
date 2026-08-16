@@ -35,6 +35,11 @@ gbrain:
   enabled: true
 linear:
   url: https://mcp.linear.app/mcp
+  # Bearer = Linear personal API key (LINEAR_API_KEY on Railway + /data/.hermes/.env). Rick chose
+  # API-key auth over the OAuth paste-back (2026-08-16); the key belongs to rick@curaition.xyz —
+  # personal keys die with the account that minted them (see linear-autoclose lesson): rotate on offboarding.
+  headers:
+    Authorization: Bearer ${LINEAR_API_KEY}
   tools:
     include:
       - list_issues
