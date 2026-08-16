@@ -65,7 +65,10 @@ materialize_hindsight_wiring() {
     local args=(--config "$home/config.yaml")
     [ -n "${HERMES_MEMORY_PROVIDER:-}" ] && args+=(--memory-provider "$HERMES_MEMORY_PROVIDER")
     [ -n "${HERMES_MCP_SERVERS_YAML:-}" ] && args+=(--mcp-servers-b64 "$HERMES_MCP_SERVERS_YAML")
-    python3 "$here/hermes_config_patch.py" "${args[@]}"
+    if ! python3 "$here/hermes_config_patch.py" "${args[@]}"; then
+      echo "hindsight_wiring: hermes_config_patch.py failed — config.yaml left unchanged" >&2
+      return 1
+    fi
   fi
   return 0
 }

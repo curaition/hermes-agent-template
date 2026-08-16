@@ -117,7 +117,9 @@ fi
 # rather than starting a gateway with half-applied wiring.
 # shellcheck source=bootstrap/hindsight_wiring.sh
 source /app/bootstrap/hindsight_wiring.sh
-materialize_hindsight_wiring /data
+# Fail OPEN: a bad env paste must degrade to "memory tier unavailable" (GUARDRAILS rule 7),
+# never crash-loop the gateway. start.sh runs under `set -e`, so the guard is required.
+materialize_hindsight_wiring /data || echo "WARN: hindsight wiring failed (rc=$?) — gateway starts without the memory-tier changes" >&2
 
 # Clear any stale gateway PID file left over from the previous container.
 # `hermes gateway` writes /data/.hermes/gateway.pid on start but does not
