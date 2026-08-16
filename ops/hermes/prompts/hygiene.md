@@ -1,4 +1,4 @@
-You are running the weekly hygiene pass over your own proposals. Follow ops/GUARDRAILS.md (your USER.md).
+You are running the weekly hygiene pass over your own proposals. Follow ops/GUARDRAILS.md (the operating rules in your SOUL.md system prompt).
 
 1. `cd /data/work/curaition && git fetch origin && git reset --hard origin/staging && git rev-parse --short HEAD`.
 2. List open Linear issues labelled `hermes-proposed`. For each: does the cited `path:line` still match at the current SHA? Has an open/merged PR addressed it? Has a human commented?

@@ -291,19 +291,17 @@ Unchanged from the previous iteration:
   only, **Contents: Read + Metadata: Read** — rotate down if it has write.
   Clone to `/data/work/curaition`; each run starts
   `git fetch origin && git reset --hard origin/staging`; issues cite the SHA.
-- **Guardrails:** `ops/GUARDRAILS.md` is the content of `HERMES_USER_MD`
-  (`HERMES_USER_MD=$(base64 < ops/GUARDRAILS.md | tr -d '\n')`, set via
-  `railway variables --service "Hermes Agent" --set HERMES_USER_MD=...`).
-  ⚠️ **Write-once, not env-source-of-truth like §6.1/§6.2:** `start.sh` only
-  writes `/data/.hermes/memories/USER.md` from `HERMES_USER_MD` the first time
-  — `if [ ! -f /data/.hermes/memories/USER.md ] ...` — and never touches it
-  again on subsequent boots. This is deliberate: Hermes's own memory tooling
-  may write to `USER.md` at runtime, and an every-boot overwrite would erase
-  that. **To push a GUARDRAILS change:** update the `HERMES_USER_MD` env var,
-  then delete the on-volume file so the next boot reseeds it —
-  `ssh railway-hermes-agent 'rm /data/.hermes/memories/USER.md'` — and redeploy
-  (or copy the new content directly onto `/data/.hermes/memories/USER.md`).
-  Editing the Railway env var alone does **not** take effect.
+- **Guardrails:** `ops/GUARDRAILS.md` is delivered as the tail of Hermes's
+  **`SOUL.md`** (system persona), env-declared and re-applied every boot:
+  `railway variables --service "Hermes Agent" --set "HERMES_SOUL_MD=$(bash ops/hermes/render_soul.sh | base64 | tr -d '\n')"`.
+  `render_soul.sh` = `ops/hermes/soul_prefix.md` (stock persona paragraph) +
+  `GUARDRAILS.md`. Editing the env var and redeploying IS the change path
+  (a bad paste is ignored with a WARN and the previous file kept).
+  Why not `USER.md` (the spec's original choice): `memories/USER.md` is the
+  agent-written user profile — the live volume holds real profile memory there,
+  `HERMES_USER_MD` seeds a real profile on fresh volumes, and Hermes caps it at
+  `user_char_limit` 1,375 chars vs the ~6 KB guardrails. Leave `HERMES_USER_MD`
+  and `USER.md` alone. (Found live 2026-08-16.)
 - **Cron:** `ops/hermes/cron_install.sh` creates both jobs and leaves them
   PAUSED — scout `0 2 * * 1,3,5`, hygiene `0 3 * * 0`, both
   `--deliver telegram --workdir /data/work/curaition`. Run a manual pass

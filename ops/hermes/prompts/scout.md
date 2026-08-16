@@ -1,4 +1,4 @@
-You are running the scheduled CurAItion issue-scout pass. Follow ops/GUARDRAILS.md (your USER.md) exactly.
+You are running the scheduled CurAItion issue-scout pass. Follow ops/GUARDRAILS.md (the operating rules in your SOUL.md system prompt) exactly.
 
 Procedure:
 1. `cd /data/work/curaition && git fetch origin && git reset --hard origin/staging && git rev-parse --short HEAD` — record the SHA.
