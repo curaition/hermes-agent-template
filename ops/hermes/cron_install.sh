@@ -9,7 +9,11 @@ WORKDIR="${WORKDIR:-/data/work/curaition}"
 for f in scout.md hygiene.md atlas.md; do
   [ -s "$PROMPTS_DIR/$f" ] || { echo "missing/empty prompt: $PROMPTS_DIR/$f" >&2; exit 1; }
 done
-existing="$(hermes cron list 2>/dev/null || true)"
+# --all is load-bearing: `hermes cron list` shows ACTIVE jobs only, and every job this
+# script creates is paused immediately after creation. Without it the duplicate guard
+# is blind to exactly the jobs it installed, and a re-run silently creates a second
+# copy of each (verified on the live box 2026-08-16).
+existing="$(hermes cron list --all 2>/dev/null || true)"
 mk() { # mk NAME SCHEDULE PROMPTFILE
   if grep -qE "(^|[^A-Za-z0-9_-])$1([^A-Za-z0-9_-]|$)" <<<"$existing"; then echo "= $1 already exists; skipping"; return; fi
   local out id
