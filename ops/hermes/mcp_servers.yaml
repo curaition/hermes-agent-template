@@ -49,3 +49,23 @@ linear:
       - list_issue_labels
       - save_comment
   enabled: true
+# Hindsight as an MCP server IN ADDITION to the memory plugin. Reason (found live
+# 2026-08-16): Hermes hard-codes skip_memory=True for cron jobs (cron/scheduler.py),
+# so the plugin's auto-recall/auto-retain never runs in the scout/hygiene sessions.
+# MCP tools DO load in cron, so the scout reflects/retains explicitly through this
+# server. Same bank, same bearer; the server-side lockdown (15 tools) is the ceiling —
+# the include list below is the subset the prompts name.
+hindsight:
+  url: https://hindsight.curaition.xyz/mcp/hermes-agent/
+  headers:
+    Authorization: Bearer ${HINDSIGHT_API_KEY}
+  tools:
+    include:
+      - retain
+      - recall
+      - reflect
+      - list_mental_models
+      - get_mental_model
+      - list_directives
+      - get_bank
+  enabled: true

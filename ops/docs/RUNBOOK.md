@@ -289,6 +289,15 @@ Unchanged from the previous iteration:
   Linear identity for attribution/revocation.
 - **Repo:** `GH_TOKEN` must be a fine-grained PAT, `curaition-xyz/curaition`
   only, **Contents: Read + Metadata: Read** — rotate down if it has write.
+  Add **Pull requests: Read** too — the scout runs `gh pr list` for in-flight
+  overlap and a Contents-only PAT gets `Resource not accessible by personal
+  access token`. ⚠️ **Hermes strips `GH_TOKEN` from every terminal/execute_code
+  subprocess** (provider blocklist, not overridable by `terminal.env_passthrough`)
+  and the agent's shell runs with `HOME=/data/.hermes/home`, so git/gh inside
+  the agent authenticate ONLY via `/data/.hermes/home/.git-credentials` +
+  `/data/.hermes/home/.config/gh/hosts.yml`. `start.sh` rewrites both from
+  `GH_TOKEN` at every boot (env is the truth). A stale store there = silent
+  anonymous 403s in the scout with an "ok" run status (2026-08-16).
   Clone to `/data/work/curaition`; each run starts
   `git fetch origin && git reset --hard origin/staging`; issues cite the SHA.
 - **Guardrails:** `ops/GUARDRAILS.md` is delivered as the tail of Hermes's
@@ -302,6 +311,14 @@ Unchanged from the previous iteration:
   `HERMES_USER_MD` seeds a real profile on fresh volumes, and Hermes caps it at
   `user_char_limit` 1,375 chars vs the ~6 KB guardrails. Leave `HERMES_USER_MD`
   and `USER.md` alone. (Found live 2026-08-16.)
+- **Cron memory tier:** Hermes hard-codes `skip_memory=True` for cron jobs
+  (`cron/scheduler.py`), so the Hindsight *plugin* (auto-recall/retain) is
+  active only in chat sessions. Cron sessions get the same bank through the
+  `hindsight` entry in `ops/hermes/mcp_servers.yaml` (bank-scoped MCP endpoint,
+  bearer `HINDSIGHT_API_KEY`, include ⊆ the 15-tool lockdown) and the prompts
+  call `mcp_hindsight_reflect` / `_retain` / `_get_mental_model` explicitly.
+  Also: paused jobs are NOT fired by `hermes cron run` — for a manual pass do
+  `resume` → `run` → (wait until `last_run_at` moves) → `pause`.
 - **Cron:** `ops/hermes/cron_install.sh` creates both jobs and leaves them
   PAUSED — scout `0 2 * * 1,3,5`, hygiene `0 3 * * 0`, both
   `--deliver telegram --workdir /data/work/curaition`. Run a manual pass

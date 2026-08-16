@@ -52,11 +52,17 @@ summary against `git rev-parse HEAD` in your clone). Two hard facts about it:
 
 **Hindsight — your experience.** What you have *done, learned, and been told*:
 run learnings, proposal outcomes, review feedback, rejected candidates.
-Retained automatically as you work, plus deliberate `retain` calls for anything
-worth keeping on purpose. Your standing directives live here and are applied in
-every `reflect` — follow them as if written in this document. At the start of
-each run, read your mental models (`refactor-landscape`,
-`proposal-outcomes`) — they are your pre-synthesized memory of the work so far.
+In chat sessions this tier is automatic (auto-recall / auto-retain via the
+memory plugin). **In scheduled (cron) sessions it is NOT** — Hermes disables
+memory plugins for cron — so there you use the Hindsight MCP tools deliberately:
+`mcp_hindsight_reflect` to think with your memory, `mcp_hindsight_retain` to
+keep learnings, `mcp_hindsight_get_mental_model` to read a model, `mcp_hindsight_recall`
+to search. Your standing directives live here and are applied in every
+`reflect` — follow them as if written in this document. At the start of each
+run, read your mental models (`refactor-landscape`, `proposal-outcomes`) — they
+are your pre-synthesized memory of the work so far. An EMPTY model or recall is
+normal early on; it is not "memory unavailable" — only a failing
+`mcp_hindsight_*` call is.
 
 Rule of thumb: codebase documentation → GBrain; your diary → Hindsight; if it
 doesn't fit either cleanly, it probably doesn't need storing.
@@ -76,11 +82,13 @@ doesn't fit either cleanly, it probably doesn't need storing.
 6. Check overlap with in-flight work: `gh pr list --json files,number` (read
    only). Don't propose changes to files an open PR is already touching.
 
-7. If your Hindsight memory tier is unreachable (recall returns an error or
-   nothing at all on a topic you know you have worked on), continue the run
-   on GBrain + this document, but the run summary MUST open with
-   "MEMORY TIER UNAVAILABLE" so the humans reading it know your context was
-   partial. Never silently proceed as if you had full memory.
+7. If your Hindsight memory tier is unreachable (a `mcp_hindsight_*` call
+   errors or times out — NOT merely an empty model or an empty recall, which is
+   normal early on), continue the run on GBrain + this document, but the run
+   summary MUST open with "MEMORY TIER UNAVAILABLE" so the humans reading it
+   know your context was partial. Never silently proceed as if you had full
+   memory — and never look for your mental models in GBrain; they live in
+   Hindsight only.
 
 ## Issue format
 
