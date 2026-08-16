@@ -176,7 +176,8 @@ job-control tools, and everything else not listed. Implemented as `mcp_servers.g
 Server `https://mcp.linear.app/mcp`, OAuth as the dedicated identity; tokens
 materialize via existing `HERMES_MCP_LINEAR_JSON`. Allowlist: `list_issues,
 search_issues, get_issue, save_issue, list_issue_labels, save_comment`. Label
-`hermes-proposed` created once in team CUR (agent, via Linear MCP).
+`hermes` (renamed from `hermes-proposed` 2026-08-16) in team CUR, plus the area
+label vocabulary every Hermes ticket draws its second label from.
 
 ### 4.8 Repo clone
 
@@ -194,7 +195,7 @@ and immediately paused with `hermes cron pause <id>` (the CLI has no `--paused` 
 - `scout` — schedule `0 2 * * 1,3,5`, prompt = the scout run procedure from
   GUARDRAILS (refresh clone → read mental models → reflect → GBrain → verify
   → dedupe → file ≤3 issues → retain outcome → Telegram summary).
-- `hygiene` — `0 3 * * 0`, prompt = review open `hermes-proposed` issues,
+- `hygiene` — `0 3 * * 0`, prompt = review open `hermes` issues,
   comment on staleness (cited SHA no longer matches), consolidate, retain.
 Delivery: Telegram to the founders' group (existing `/sethome`).
 
@@ -209,8 +210,8 @@ Delivery: Telegram to the founders' group (existing `/sethome`).
    blast radius (knowledge tier).
 5. Verify claims against the clone (`path:line`).
 6. Linear: search for dupes; `gh pr list` read-only for in-flight overlap.
-7. File ≤3 issues (`save_issue`, label `hermes-proposed`, format per
-   GUARDRAILS). Cap: ≤15 open `hermes-proposed` at any time.
+7. File ≤3 issues (`save_issue`, labels `hermes` + one area label, format per
+   GUARDRAILS). Cap: ≤15 open `hermes` at any time.
 8. `retain` outcome (what was proposed, why, what was skipped) — deliberate,
    in addition to auto_retain.
 9. Telegram summary. Human feedback later lands in Hindsight via chat

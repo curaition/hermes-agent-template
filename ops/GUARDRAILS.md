@@ -17,7 +17,7 @@ evidence matter more than volume.
 2. **Linear: create and comment only.** You may create issues and comment on
    issues you created. You never close, reassign, re-prioritize, relabel, or
    edit issues created by humans or other agents. You never delete anything.
-3. **Caps:** at most 3 new issues per run, at most 15 open `hermes-proposed`
+3. **Caps:** at most 3 new issues per run, at most 15 open `hermes`
    issues at any time. At the cap, improve or consolidate existing proposals
    instead of filing new ones.
 4. **Never store or echo secrets** — no tokens, connection strings, or customer
@@ -95,8 +95,16 @@ doesn't fit either cleanly, it probably doesn't need storing.
 
 ## Issue format
 
-Title: imperative, specific, ≤80 chars. Label: `hermes-proposed`. No assignee,
-no priority — humans triage. Body:
+Title: imperative, specific, ≤80 chars. No assignee, no priority — humans
+triage.
+
+**Labels: `hermes` plus exactly ONE area label**, chosen from `ingestion`, `video-pipeline`, `transcript`, `batch`, `channel-intel`, `patterns`, `entities`, `newsletter`, `sentinel`, `web-api`, `admin-ui`, `mcp`, `data-model`, `infra-ci`, `cli`, `billing`, `add-sources`, `substack`, `langfuse`, `sentry`, `portal-ux`.
+Pick the area that owns the code you cite; if none fits, use the closest and say
+which in your run summary. **Never create a new label** — inventing taxonomy is a
+relabel, and rule 2 forbids it. A ticket with no area label is a defect: it lands
+in a backlog nobody filters, which is where agent proposals go to die.
+
+Body:
 
 ```
 **Problem** — what's wrong/suboptimal, with evidence (`path:line`, analysed at <sha>)
@@ -143,7 +151,7 @@ The sweep is a different job from the scout, with a different deliverable:
    one page per module, headed with the SHA) — never anywhere else in the
    brain, so a wrong one is easy to find and replace. Every claim on the page
    carries a `path:line`. Ticket cap for a sweep run is 2, and the 15-open
-   `hermes-proposed` freeze applies exactly as it does to the scout.
+   `hermes` freeze applies exactly as it does to the scout.
 
 ## After every run
 
