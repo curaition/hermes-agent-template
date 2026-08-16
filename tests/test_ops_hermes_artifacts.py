@@ -92,6 +92,23 @@ def test_atlas_prompt_binds_the_agent_to_the_queue_and_the_evidence_gate():
     assert "hermes-proposed" in p and "gh pr list" in p
 
 
+def test_atlas_prompt_gates_absence_claims_and_marks_doc_provenance():
+    """Both rules exist because the baseline run broke them (2026-08-16).
+
+    It asserted the CUR-1333 drift gate was 'a code comment' while a blocking CI job
+    runs it, and it sourced whole invariants sections from module CLAUDE.md files
+    without saying so — in pages that are durable and read later as established fact.
+    """
+    p = (OPS / "prompts" / "atlas.md").read_text()
+    # absence claims must be searched outside src/ or downgraded to an open question
+    assert "git grep -n <term> -- .github scripts alembic" in p
+    assert "Absence is the hardest claim to make" in p
+    assert "never as an assertion" in p
+    # doc-sourced claims must be labelled as such
+    assert "Mark every claim's provenance" in p
+    assert "doc, not verified against code" in p
+
+
 def test_start_sh_creates_the_atlas_state_dir_on_the_volume():
     root = pathlib.Path(__file__).resolve().parents[1]
     s = (root / "start.sh").read_text()
