@@ -76,7 +76,7 @@ class H(BaseHTTPRequestHandler):
         if name == "list_directives": return ok({"directives": bank["directives"]})
         if name == "create_directive": bank["directives"].append({"name":args["name"],"content":args["content"],"priority":args.get("priority",0)}); return ok({"ok":True})
         if name == "list_mental_models": return ok({"mental_models": bank["mental_models"]})
-        if name == "create_mental_model": bank["mental_models"].append({"mental_model_id":args["mental_model_id"],"tags_match":args.get("tags_match")}); return ok({"ok":True})
+        if name == "create_mental_model": bank["mental_models"].append({"id":args["mental_model_id"],"name":args.get("name"),"tags":args.get("tags"),"trigger":{"tags_match":args.get("tags_match")}})  # real 0.9.1 lists `id`, not `mental_model_id`; return ok({"ok":True})
         return ok({"ok": True})
 
 if __name__ == "__main__":

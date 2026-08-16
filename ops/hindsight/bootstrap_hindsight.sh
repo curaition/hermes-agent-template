@@ -88,7 +88,7 @@ add_directive human-driver-areas "Celery task signatures and beat schedule, data
 add_directive feedback-over-priors "When human review feedback conflicts with your own assessment of a proposal, weight the feedback above your priors and record the delta as a learning." 90
 
 echo "== mental models (tags_match any — tagged models default to all_strict and come back EMPTY) =="
-havem="$(mcp "/mcp/${BANK}/" list_mental_models '{}' | jq -r '(.mental_models // .items // .)[]?.mental_model_id // empty')"
+havem="$(mcp "/mcp/${BANK}/" list_mental_models '{}' | jq -r '(.mental_models // .items // .)[]? | (.id // .mental_model_id) // empty')"
 add_model() { # id name query tags-json
   if grep -qx "$1" <<<"$havem"; then echo "  = $1"; return; fi
   mcp "/mcp/${BANK}/" create_mental_model "$(jq -cn --arg id "$1" --arg n "$2" --arg q "$3" --argjson t "$4" \

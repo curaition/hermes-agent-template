@@ -11,7 +11,7 @@ state() { curl -s "http://127.0.0.1:$port/__state"; }
 
 bash "$S" >/dev/null || fail "first run failed"
 state | jq -e '.banks["hermes-agent"].directives|length==3' >/dev/null || fail "3 directives"
-state | jq -e '.banks["hermes-agent"].mental_models|length==2 and all(.[]; .tags_match=="any")' >/dev/null || fail "2 models any"
+state | jq -e '.banks["hermes-agent"].mental_models|length==2 and all(.[]; .trigger.tags_match=="any")' >/dev/null || fail "2 models any"
 state | jq -e '.banks["hermes-agent"].config.disposition_skepticism==4 and (.banks["hermes-agent"].config.retain_mission|length>20)' >/dev/null || fail "config"
 state | jq -e '.banks["hermes-agent"].config.mcp_enabled_tools==null' >/dev/null || fail "locked down without flag"
 
