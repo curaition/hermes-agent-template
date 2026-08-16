@@ -313,17 +313,17 @@ Unchanged from the previous iteration:
 
 ## 7. Verification checklist
 
-- [ ] From outside (your Mac): `nmap -Pn <box-ip>` shows only 22/80/443 — Coolify dashboard (8000/6001/6002) and Hindsight (8888/9999) unreachable
-- [ ] `free -h` on the box after the stack is up: swap present, no OOM kills in `dmesg`
-- [ ] Hindsight unauthenticated request → 401; with bearer → tools/list returns the single-bank tool set
-- [ ] Bank `hermes-agent` exists; directives listed; both mental models present and **non-empty after first refresh** (the tags_match footgun)
+- [x] 2026-08-16 — From outside (your Mac): `nmap -Pn <box-ip>` shows only 22/80/443 — Coolify dashboard (8000/6001/6002) and Hindsight (8888/9999) unreachable (Hetzner firewall `hermes-memory`, id 11472086; `verify.sh` firewall PASS)
+- [x] 2026-08-16 — `free -h` on the box after the stack is up: swap present (2.0 GiB), no OOM kills in `dmesg`
+- [x] 2026-08-16 — Hindsight unauthenticated request → 401; with bearer → initialize mints a session and tools/list returns the 15-tool locked-down set on `/mcp/hermes-agent/` (`verify.sh` all PASS)
+- [x] 2026-08-16 — Bank `hermes-agent` exists; 3 directives listed; both mental models present with `trigger.tags_match=any` and non-empty (`verify.sh` PASS)
 - [ ] From a Hermes chat: a retained test fact recalls on the next session (proves cross-cloud auto_retain/auto_recall round-trip)
 - [ ] GBrain: `code_callers` on a known function returns real call sites (proves the code index covers the repo — issue quality depends on it)
 - [ ] Hermes files a test issue: `hermes-proposed` label, file:line + SHA evidence, no dupe
 - [ ] Push attempt from Hermes box fails (token verified read-only)
 - [ ] Hermes's tool list contains no destructive GBrain or Hindsight tools
 - [ ] Redeploy Hermes: config, OAuth tokens, clone survive on `/data`
-- [ ] Coolify scheduled backup to the GCS bucket ran at least once — and one dump restored successfully to prove the path
+- [x] 2026-08-16 — Coolify scheduled backup ran at least once (daily, config `9npip7f8yohk2rkpjaj3znj3`; target = **Hetzner Object Storage** bucket `curaition-hermes-backups` in hel1, Coolify storage `hetzner-hermes-backups` — GCS was replaced by Rick's decision) — and the first dump (125,735 B) was downloaded from the bucket and `pg_restore`d into a scratch DB on the box: rc=0, 23 tables, bank/3 directives/2 mental models present; scratch DB dropped afterwards
 
 ## 8. Migration path (the rest of Railway → Hetzner, later)
 
