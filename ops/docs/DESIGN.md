@@ -158,6 +158,8 @@ the plugin; the Dockerfile's `[hindsight]` extra already installs the client —
 
 `ops/GUARDRAILS.md` = current `HERMES_GUARDRAILS.md`, delivered as `HERMES_SOUL_MD` (persona prefix + guardrails → `/data/.hermes/SOUL.md`, re-applied every boot). *Deviation recorded 2026-08-16:* the spec said `HERMES_USER_MD`; live data showed `USER.md` is the agent-written profile (1,375-char cap, real content on the volume), so SOUL.md is the correct surface.
 
+*Deviation recorded 2026-08-16 (cron memory tier):* the spec assumed the Hindsight memory plugin (auto-recall/auto-retain) would run in the scout/hygiene cron sessions. Hermes 0.18 hard-codes `skip_memory=True` for cron jobs, so the plugin only serves chat sessions. The bank is therefore ALSO exposed to Hermes as an MCP server (`mcp_servers.hindsight` → `/mcp/hermes-agent/`, bearer, include ⊆ lockdown) and the cron prompts reflect/retain explicitly. Net effect on the design: same single bank, same lockdown; "automatic" retention is chat-only, "deliberate" retention is the cron path.
+
 ### 4.6 GBrain trim (Hermes MCP config)
 
 Allowlist (kept): `query, search, recall, get_page, get_chunks, get_backlinks,

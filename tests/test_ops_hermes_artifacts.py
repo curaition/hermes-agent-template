@@ -24,7 +24,13 @@ def test_mcp_servers_allowlists():
     l = d["linear"]
     assert l["url"] == "https://mcp.linear.app/mcp"
     assert set(l["tools"]["include"]) == LINEAR_ALLOW
-    assert set(d) == {"gbrain", "linear"}       # never touch CurAItion/youcom entries
+    assert set(d) == {"gbrain", "linear", "hindsight"}   # never touch CurAItion/youcom entries
+    h = d["hindsight"]
+    assert h["url"] == "https://hindsight.curaition.xyz/mcp/hermes-agent/"
+    assert h["headers"]["Authorization"] == "Bearer ${HINDSIGHT_API_KEY}"
+    LOCKDOWN = {"retain","sync_retain","recall","reflect","list_memories","get_memory","list_mental_models","get_mental_model","list_directives","list_tags","get_bank","list_documents","get_document","list_operations","get_operation"}
+    assert set(h["tools"]["include"]) <= LOCKDOWN          # never name a tool the bank lockdown removed
+    assert not {t for t in h["tools"]["include"] if t.startswith(("delete","update","clear","create"))}
 
 def test_hindsight_config():
     c = json.loads((OPS / "hindsight.config.json").read_text())
@@ -57,3 +63,12 @@ def test_start_sh_reapplies_soul_every_boot_and_leaves_user_md_write_once():
     assert 'HERMES_SOUL_MD' in s and 'SOUL.md.tmp' in s and 'mv /data/.hermes/SOUL.md.tmp /data/.hermes/SOUL.md' in s
     # USER.md stays write-once (agent-written profile, 1,375-char cap)
     assert 'if [ ! -f /data/.hermes/memories/USER.md ] && [ -n "${HERMES_USER_MD}" ]' in s
+
+
+def test_start_sh_syncs_terminal_home_git_credentials_from_gh_token():
+    root = pathlib.Path(__file__).resolve().parents[1]
+    s = (root / "start.sh").read_text()
+    assert 'TERM_HOME=/data/.hermes/home' in s
+    assert "> \"${TERM_HOME}/.git-credentials\"" in s and 'umask 077' in s
+    assert 'helper = store --file=/data/.hermes/home/.git-credentials' in s
+    assert 'env -u GH_TOKEN HOME="${TERM_HOME}" gh auth login --with-token' in s

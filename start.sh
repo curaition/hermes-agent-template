@@ -147,4 +147,24 @@ if [ -n "${GH_TOKEN}" ]; then
   fi
 fi
 
+# Hermes STRIPS GH_TOKEN from every terminal/execute_code subprocess by design
+# (tools/environments/local.py provider blocklist; passthrough refuses it), and the
+# terminal shell runs with HOME=/data/.hermes/home. So git/gh inside the agent's
+# shell authenticate ONLY via that HOME's stored credentials. Keep them in sync
+# with GH_TOKEN on every boot — a stale store here produced silent anonymous 403s
+# in the scout (found live 2026-08-16). Env is the truth; the store is derived.
+TERM_HOME=/data/.hermes/home
+if [ -n "${GH_TOKEN}" ]; then
+  mkdir -p "${TERM_HOME}/.config/gh"
+  ( umask 077; printf 'https://x-access-token:%s@github.com\n' "${GH_TOKEN}" > "${TERM_HOME}/.git-credentials" )
+  if ! grep -q 'helper = store --file=/data/.hermes/home/.git-credentials' "${TERM_HOME}/.gitconfig" 2>/dev/null; then
+    printf '[user]\n\tname = Hermes Agent\n\temail = info@curaition.xyz\n[credential]\n\thelper = store --file=/data/.hermes/home/.git-credentials\n' > "${TERM_HOME}/.gitconfig"
+  fi
+  # gh (for `gh pr list` etc.) needs its own stored login; must run WITHOUT GH_TOKEN in env or it refuses to store.
+  if command -v gh >/dev/null 2>&1; then
+    printf '%s' "${GH_TOKEN}" | env -u GH_TOKEN HOME="${TERM_HOME}" gh auth login --with-token >/dev/null 2>&1 \
+      || echo "WARN: gh auth login (terminal HOME) failed — gh commands in the agent shell will be unauthenticated" >&2
+  fi
+fi
+
 exec python /app/server.py
