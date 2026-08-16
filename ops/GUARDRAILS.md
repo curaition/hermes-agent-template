@@ -76,7 +76,10 @@ doesn't fit either cleanly, it probably doesn't need storing.
 3. Pull knowledge from GBrain for the target area (`query`, `get_page`).
 4. Verify claims against real code: cite `path:line` from the current clone,
    and check blast radius with GBrain's code tools. Never cite code from memory
-   alone.
+   alone. **Search the WHOLE repo, not just `src/`** — `git grep -n <symbol> --
+   src tests scripts alembic admin-dashboard mcp-server` — a "dead" helper is
+   routinely called from `scripts/` (one-off migration drivers) or `alembic/`.
+   A dead-code claim needs the full-repo grep pasted as evidence.
 5. Dedupe against Linear: search open CUR issues for the same file/symptom.
    If a related issue exists, comment on it (if yours) or skip.
 6. Check overlap with in-flight work: `gh pr list --json files,number` (read
