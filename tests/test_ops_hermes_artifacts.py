@@ -85,7 +85,7 @@ def test_atlas_prompt_binds_the_agent_to_the_queue_and_the_evidence_gate():
     assert "do not mark it done" in p
     # the traps we have already paid for once
     assert 'source_id: "curaition"' in p and "not_built" in p
-    assert "git grep -n <symbol> -- src tests scripts alembic" in p
+    assert "git grep -n <symbol> -- ." in p
     assert "mcp_hindsight_" in p and "NO memory plugin" in p
     # tickets are capped and deduped, dossiers are the deliverable
     assert "at most **2 for the whole run**" in p
@@ -93,17 +93,33 @@ def test_atlas_prompt_binds_the_agent_to_the_queue_and_the_evidence_gate():
 
 
 def test_atlas_prompt_gates_absence_claims_and_marks_doc_provenance():
-    """Both rules exist because the baseline run broke them (2026-08-16).
+    """Both rules exist because real runs broke them.
 
-    It asserted the CUR-1333 drift gate was 'a code comment' while a blocking CI job
-    runs it, and it sourced whole invariants sections from module CLAUDE.md files
-    without saying so — in pages that are durable and read later as established fact.
+    2026-08-16 (baseline): asserted the CUR-1333 drift gate was 'a code comment'
+    while a blocking CI job runs it, and sourced whole invariants sections from
+    module CLAUDE.md files without saying so — in pages that are durable and read
+    later as established fact.
+
+    2026-08-17 (CUR-1408): claimed `run_consolidation` had zero callers off an
+    `src/ tests/` grep, then wrote "No CLI, Celery beat, or FastAPI route
+    references it" — four trees it never searched. `scripts/` holds the caller.
+    The first version of this rule scoped the grep by listing trees, which is what
+    let a partial list read as sufficient; it is now a bare `.` everywhere.
     """
     p = (OPS / "prompts" / "atlas.md").read_text()
-    # absence claims must be searched outside src/ or downgraded to an open question
-    assert "git grep -n <term> -- .github scripts alembic" in p
+    # one command, whole repo — a tree list is what failed twice
+    assert "git grep -n <symbol-or-term> -- ." in p
+    assert "a bare `.`, never a tree list" in p
     assert "Absence is the hardest claim to make" in p
-    assert "never as an assertion" in p
+    assert "it is an Open question, not an assertion" in p
+    # deadness is an absence claim, and must be named as one
+    assert "unused, no callers, never called, safe to delete" in p
+    assert "Never state a conclusion wider than the command you ran" in p
+    # an unrun grep and an empty grep are indistinguishable unless pasted
+    assert "must quote the exact `git grep -n <symbol> -- .` command and its full output" in p
+    # no tree-list grep may survive anywhere in the prompt
+    assert "-- src tests scripts alembic" not in p
+    assert "-- .github scripts alembic" not in p
     # doc-sourced claims must be labelled as such
     assert "Mark every claim's provenance" in p
     assert "doc, not verified against code" in p
