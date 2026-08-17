@@ -21,7 +21,7 @@ grep -q '^cron create 0 2 \* \* 1,3,5 .*--name hermes-scout --deliver telegram -
 grep -q '^cron create 0 3 \* \* 0 .*--name hermes-hygiene --deliver telegram --workdir /data/work/curaition' "$FAKE_HERMES_LOG" || { echo "FAIL hygiene create"; exit 1; }
 grep -q '^cron create 0 4 \* \* \* .*--name hermes-atlas --deliver telegram --workdir /data/work/curaition' "$FAKE_HERMES_LOG" || { echo "FAIL atlas create"; cat "$FAKE_HERMES_LOG"; exit 1; }
 [ "$(grep -c '^cron pause job_' "$FAKE_HERMES_LOG")" = 3 ] || { echo "FAIL pause count"; cat "$FAKE_HERMES_LOG"; exit 1; }
-grep -q 'atlas.sh next --count 3' "$FAKE_HERMES_LOG" || { echo "FAIL atlas prompt not passed"; exit 1; }
+grep -q 'atlas.sh next --count 5' "$FAKE_HERMES_LOG" || { echo "FAIL atlas prompt not passed"; exit 1; }
 grep -q 'MEMORY TIER UNAVAILABLE' "$FAKE_HERMES_LOG" || { echo "FAIL prompt content not passed"; exit 1; }
 # idempotent — jobs already present and ACTIVE
 printf 'hermes-scout\nhermes-hygiene\nhermes-atlas\n' | tee "$FAKE_HERMES_LIST" > "$FAKE_HERMES_LIST_ACTIVE"; : > "$FAKE_HERMES_LOG"

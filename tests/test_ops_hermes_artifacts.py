@@ -78,7 +78,7 @@ def test_atlas_prompt_binds_the_agent_to_the_queue_and_the_evidence_gate():
     p = (OPS / "prompts" / "atlas.md").read_text()
     # the queue assigns work; the agent may not pick its own modules
     assert "/app/bootstrap/atlas/seed_coverage.sh" in p
-    assert "atlas.sh next --count 3" in p
+    assert "atlas.sh next --count 5" in p
     assert "never substitute your own picks" in p
     # recording a module requires the evidence the helper enforces
     assert "--sha <SHA> --page <slug> --evidence <path:line>" in p
