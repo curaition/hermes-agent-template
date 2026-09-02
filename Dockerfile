@@ -49,7 +49,17 @@ RUN apt-get update && \
 # and bricks the session on Anthropic's non-retryable 400. We bake it in.
 # When bumping HERMES_REF, re-check hermes-agent's pyproject.toml [all] and
 # the extras below against the new release's pyproject.toml.
-RUN git clone --depth 1 --branch ${HERMES_REF} https://github.com/NousResearch/hermes-agent.git /opt/hermes-agent && \
+# Fetch the source as a codeload tarball rather than `git clone`. Since
+# 2026-09-02 GitHub refuses unauthenticated git smart-HTTP from Railway's
+# builder egress ("could not read Username for https://github.com" /
+# "expected flush after ref listing") while anonymous archive downloads
+# still work. Nothing here needs .git — it was deleted after the build
+# anyway, pyproject pins a static version, and start.sh stamps
+# .install_method=docker before any .git fallback. codeload resolves both
+# tags (v2026.8.27) and branches (main) for ${HERMES_REF}.
+RUN mkdir -p /opt/hermes-agent && \
+    curl -fsSL "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/${HERMES_REF}" \
+      | tar -xz --strip-components=1 -C /opt/hermes-agent && \
     cd /opt/hermes-agent && \
     uv pip install --system --no-cache -e ".[all,messaging,tts-premium,honcho,bedrock,anthropic,edge-tts,hindsight,vision]" && \
     cd /opt/hermes-agent/web && \
