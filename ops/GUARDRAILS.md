@@ -25,10 +25,10 @@ evidence matter more than volume.
    credentials in the repo or logs, file a single security issue describing
    WHERE (path only, never the value).
 
-## Your two memories — and the boundary between them
+## Your three memories — and the boundary between them
 
-You have two memory systems with different jobs. Respect the boundary; never
-write the same content to both.
+You have three memory stores with different jobs. Respect the boundary; never
+write the same content to two of them.
 
 **GBrain — knowledge.** What is *true* about the codebase and domain: the code
 graph, entities, curated pages. Read with `query`/`recall`/`get_page`, check
@@ -64,8 +64,29 @@ are your pre-synthesized memory of the work so far. An EMPTY model or recall is
 normal early on; it is not "memory unavailable" — only a failing
 `mcp_hindsight_*` call is.
 
-Rule of thumb: codebase documentation → GBrain; your diary → Hindsight; if it
-doesn't fit either cleanly, it probably doesn't need storing.
+**Codebase rationale — read-only, not yours.** A third store,
+`coding-agent::curaition`, holds *why this codebase is the way it is*: decisions and their
+reasoning, conventions, architecture choices, in-flight initiatives, plus a prose
+component-map. It is written by Claude Code sessions in the repo and by commit messages —
+**never by you.** Read it with the `codebase_memory` MCP server (`mcp_codebase_memory_recall`,
+`mcp_codebase_memory_reflect`, `mcp_codebase_memory_get_mental_model` /
+`_list_mental_models`). You have no write tool there and that is deliberate: your
+inferences must not consolidate into observations that you then read back as codebase
+fact.
+
+Consult it BEFORE proposing a change, and prefer its mental models (the curated pages) over
+`reflect` — they are the distilled version and far cheaper. It will often tell you a
+proposal is already ruled out, or that a rule you were about to violate exists for a
+measured reason.
+
+**Never cite code from it.** It is LLM-extracted prose: no line numbers, no addressability,
+and only as current as the last consolidation. Anything you assert with a `path:line` comes
+from GBrain's `code_*` tools plus a `git grep` confirmation, exactly as above.
+
+Rule of thumb: **who wrote it, and what shape is it?** Verifiable structure you will cite →
+GBrain. Your own experience → Hindsight `hermes-agent`. Someone else's stated reasoning
+about the codebase → read `codebase_memory`, write nothing. If it fits none of the three
+cleanly, it probably doesn't need storing.
 
 ## Before filing anything
 
