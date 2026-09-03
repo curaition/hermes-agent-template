@@ -13,8 +13,9 @@ Design: `docs/DESIGN.md`. Runbook (phase order, secrets manifest, verification):
 | `hindsight/coolify_backup.sh` | Coolify API: daily S3 (GCS) backup on the DB resource |
 | `hindsight/bootstrap_hindsight.sh` | Bank `hermes-agent`: config, directives, mental models, `--lockdown` |
 | `hindsight/verify.sh` | Automated acceptance checks (firewall, TLS, auth gate, bank shape) |
+| `hindsight/lockdown_coding_bank.sh` | Bank `coding-agent::curaition`: READ-ONLY `mcp_enabled_tools` (the Claude Code integration sets none — 29 tools incl. `delete_bank` were exposed, measured 2026-09-03) |
 | `hermes/env.example` | Railway env vars for the Hermes service (names only) |
-| `hermes/mcp_servers.yaml` | Declarative `mcp_servers` (GBrain + Linear allowlists) — base64 → `HERMES_MCP_SERVERS_YAML` |
+| `hermes/mcp_servers.yaml` | Declarative `mcp_servers` (GBrain, Linear, Hindsight `hermes-agent`, and read-only `codebase_memory` allowlists) — base64 → `HERMES_MCP_SERVERS_YAML` |
 | `hermes/hindsight.config.json` | Plugin config — base64 → `HERMES_HINDSIGHT_CONFIG_JSON` |
 | `hermes/prompts/*.md` | Cron job prompts |
 | `hermes/cron_install.sh` | Creates + pauses the two cron jobs (run inside the container) |

@@ -12,6 +12,14 @@ GBRAIN_DENY = {"delete_page","forget_fact","revert_version","restore_page","sche
                "reload_schema_pack","run_skillopt","sources_remove","cancel_job","pause_job","resume_job",
                "retry_job","replay_job","submit_job","submit_agent","send_job_message"}
 LINEAR_ALLOW = {"list_issues","search_issues","get_issue","save_issue","list_issue_labels","save_comment"}
+# Read-only ceiling applied server-side to `coding-agent::curaition` by
+# ops/hindsight/lockdown_coding_bank.sh. Hermes must never be able to WRITE this bank:
+# its own inferences would consolidate into observations and be read back as codebase
+# fact. `retain`/`sync_retain` are absent here on purpose (contrast the hermes-agent
+# lockdown, which is read/WRITE) — see RUNBOOK §2 and §6.5.
+CODEBASE_READONLY = {"recall","reflect","list_memories","get_memory","list_mental_models",
+                     "get_mental_model","list_directives","list_tags","get_bank",
+                     "list_documents","get_document"}
 
 def test_mcp_servers_allowlists():
     d = yaml.safe_load((OPS / "mcp_servers.yaml").read_text())
@@ -24,13 +32,25 @@ def test_mcp_servers_allowlists():
     l = d["linear"]
     assert l["url"] == "https://mcp.linear.app/mcp"
     assert set(l["tools"]["include"]) == LINEAR_ALLOW
-    assert set(d) == {"gbrain", "linear", "hindsight"}   # never touch CurAItion/youcom entries
+    assert set(d) == {"gbrain", "linear", "hindsight", "codebase_memory"}   # never touch CurAItion/youcom entries
     h = d["hindsight"]
     assert h["url"] == "https://hindsight.curaition.xyz/mcp/hermes-agent/"
     assert h["headers"]["Authorization"] == "Bearer ${HINDSIGHT_API_KEY}"
     LOCKDOWN = {"retain","sync_retain","recall","reflect","list_memories","get_memory","list_mental_models","get_mental_model","list_directives","list_tags","get_bank","list_documents","get_document","list_operations","get_operation"}
     assert set(h["tools"]["include"]) <= LOCKDOWN          # never name a tool the bank lockdown removed
     assert not {t for t in h["tools"]["include"] if t.startswith(("delete","update","clear","create"))}
+
+    c = d["codebase_memory"]
+    assert c["url"] == "https://hindsight.curaition.xyz/mcp/coding-agent::curaition/"
+    assert c["headers"]["Authorization"] == "Bearer ${HINDSIGHT_API_KEY}"   # same tenant bearer
+    assert "exclude" not in c["tools"]
+    inc = set(c["tools"]["include"])
+    assert inc <= CODEBASE_READONLY        # never name a tool the bank lockdown removed
+    # The rail: read-only. Not a style preference — see the constant's note above.
+    assert not (inc & {"retain", "sync_retain"}), "Hermes must not write the codebase bank"
+    assert not {t for t in inc if t.startswith(("delete", "update", "clear", "create", "refresh", "invalidate", "cancel"))}
+    # The two Hindsight banks must stay distinct stores (RUNBOOK §2 boundary).
+    assert c["url"] != h["url"]
 
 def test_hindsight_config():
     c = json.loads((OPS / "hindsight.config.json").read_text())

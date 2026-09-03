@@ -90,18 +90,31 @@ keys `mode/api_url/bank_id/memory_mode`; `hermes cron create <sched> <prompt>
 
 ## 2. The tier boundary (the rule that prevents split-brain)
 
-The two stores never hold the same kind of content:
+The stores never hold the same kind of content. **Amended 2026-09-03: this is now
+THREE stores, not two.** Claude Code seeded a Hindsight bank of codebase *rationale*
+(`coding-agent::curaition`) and Hermes reads it — see §6.5. The original two-column table
+said Hindsight "never contains codebase documentation", which that bank plainly does, so
+the boundary is restated by the QUESTION each store answers rather than by product:
 
-| | **GBrain** (Railway, knowledge) | **Hindsight** (Hetzner, agent memory) |
-|---|---|---|
-| Holds | Codebase intelligence (code graph), entities, curated pages, facts about the world/product | Hermes's run learnings, proposal outcomes, review-feedback patterns, standing directives, mental models of its own work |
-| Question it answers | "What is true about the codebase/domain?" | "What have I done, learned, and been told?" |
-| Hermes reads via | `query`, `recall`, `get_page`, `code_*`, `think` | auto_recall (plugin), `reflect`, mental models |
-| Hermes writes via | `put_page` / `extract_facts` — curated knowledge only | `retain` (auto + deliberate) — experiences only |
-| Never contains | Hermes's diary | Codebase documentation |
+| | **GBrain** (Railway, knowledge) | **Hindsight `hermes-agent`** (agent memory) | **Hindsight `coding-agent::curaition`** (codebase rationale) |
+|---|---|---|---|
+| Holds | Codebase intelligence (code graph), entities, curated pages, facts about the world/product | Hermes's run learnings, proposal outcomes, review-feedback patterns, standing directives, mental models of its own work | Decisions and their rationale, conventions, architecture choices, in-flight initiatives — extracted from Claude Code sessions and commit messages |
+| Question it answers | "**Where** is it, and what is structurally true?" | "What have **I** done, learned, and been told?" | "**Why** is it this way?" |
+| Hermes reads via | `query`, `recall`, `get_page`, `code_*`, `think` | auto_recall (plugin), `reflect`, mental models | `codebase_memory` MCP server — `recall`, `reflect`, mental models |
+| Hermes writes via | `put_page` / `extract_facts` — curated knowledge only | `retain` (auto + deliberate) — experiences only | **NEVER.** Read-only, enforced server-side |
+| Written by | Hermes | Hermes | Claude Code only |
+| Never contains | Hermes's diary | Codebase documentation | Code structure ("where"), or Hermes's own inferences |
 
-If a piece of content could go to either, it goes to the one matching its
+If a piece of content could go to more than one, it goes to the one matching its
 *kind*, never both.
+
+**Why the third store is read-only to Hermes.** Not caution — a correctness rail. If
+Hermes could `retain` there, its own inferences would consolidate into observations and it
+would read them back as codebase fact: a self-confirming loop in which speculation hardens
+into ground truth. The "why" store is only trustworthy while its sole writer is the agent
+actually making the changes. Enforced in two places (client allowlist in
+`ops/hermes/mcp_servers.yaml`, server-side `mcp_enabled_tools` via
+`ops/hindsight/lockdown_coding_bank.sh`), because the tenant bearer is shared.
 
 ## 3. Environment prerequisites (the actual box — captured 2026-08-15)
 
@@ -359,6 +372,69 @@ by-product — the scout finds defects, the sweep builds the map the scout reads
 - **First run:** same dance as the scout — `resume` → `run` → wait → `pause`, then
   read the dossiers it wrote (`get_page code/<slug>`) before trusting the schedule.
   Judge the dossiers, not the ticket count.
+
+### 6.5 Codebase-rationale bank (`codebase_memory`) — read-only
+
+Wires Hermes to the Hindsight bank Claude Code writes, so backlog work is grounded in the
+recorded *reason* for a convention rather than re-derived from the diff. Bank
+`coding-agent::curaition`, seeded 2026-09-03; provenance and the applied config live in
+the main repo at `docs/ops/hindsight/HANDOVER-coding-agents.md` §11.
+
+**Order matters: lock the bank down BEFORE handing Hermes the URL.**
+
+**1. Server-side read-only allowlist.** The Claude Code integration does not set
+`mcp_enabled_tools`, so the bank's `/mcp/` endpoint exposes 29 tools including
+`delete_bank`, `clear_memories` and `delete_document` (measured 2026-09-03;
+`hermes-agent` exposes 15 and nothing destructive). The bearer is shared, so this must be
+closed server-side, not just in the client allowlist:
+
+```bash
+export HINDSIGHT_URL=https://hindsight.curaition.xyz
+export HINDSIGHT_TENANT_API_KEY=<tenant key>
+./ops/hindsight/lockdown_coding_bank.sh --dry-run   # prints before/after, changes nothing
+./ops/hindsight/lockdown_coding_bank.sh             # applies + verifies exact read-back
+```
+
+Expect `lockdown verified: 11 read-only tools`. The script aborts unless an
+unauthenticated `initialize` returns 401, and fails loudly on a partial apply — note
+`update_bank` is itself excluded by the new allowlist, so it cannot re-run to repair one.
+Recovery is REST: `PATCH $HINDSIGHT_URL/v1/default/banks/coding-agent::curaition/config`
+with `{"updates":{...}}` and bearer auth.
+
+**2. Ship the MCP server entry.** WARNING: **merging this PR does not deploy it.**
+`railway.toml` `watchPatterns` deliberately excludes `ops/**`, and
+`HERMES_MCP_SERVERS_YAML` is a declarative env var built from the file **by hand**. After
+PR #8 the deploy was green while the live config still had no `hindsight` server at all.
+
+```bash
+railway variables --service "Hermes Agent" \
+  --set HERMES_MCP_SERVERS_YAML="$(base64 < ops/hermes/mcp_servers.yaml | tr -d '\n')"
+railway redeploy --service "Hermes Agent" -y
+```
+
+**3. Verify live, not from the deploy's exit code.** Diff live-vs-repo before trusting a
+run — the failure mode here is a green deploy with stale config:
+
+```bash
+railway ssh -p 5a884f8f-dd5a-4bc3-829f-090e16b7a194 -s ebd1445c-d175-44e9-a662-b3041fe3dae3 \
+  -e b8daa185-8abb-487f-93aa-232980b06415 -- hermes mcp list      # codebase_memory present?
+railway ssh ... -- hermes mcp test codebase_memory                 # handshake + tool count
+```
+
+Want: `codebase_memory` listed, and exactly the five allowlisted tools (`recall`,
+`reflect`, `list_mental_models`, `get_mental_model`, `get_bank`) — no `retain`.
+
+**4. Name it in the prompts.** MCP tools do load in cron, but the agent only uses what the
+prompt tells it to (the reason §6.1's plugin tier needed this server at all). For the scout
+to benefit, `ops/hermes/prompts/*.md` must instruct it to consult `codebase_memory` —
+mental models first (the five curated pages are the distilled "why"), `reflect` only when
+those are too shallow. **Not done in this PR** — prompt changes are a separate, reviewable
+concern.
+
+**Does this affect Claude Code?** No. Its `hindsight_*` tools are served by a local Node
+MCP server that calls the REST API (`/v1/...`), not the `/mcp/` endpoint that
+`mcp_enabled_tools` gates. Confirm after step 1 anyway: a session in the repo should still
+print its bank banner and answer `hindsight_sync_status`.
 
 ## 7. Verification checklist
 
