@@ -90,23 +90,38 @@ keys `mode/api_url/bank_id/memory_mode`; `hermes cron create <sched> <prompt>
 
 ## 2. The tier boundary (the rule that prevents split-brain)
 
-The stores never hold the same kind of content. **Amended 2026-09-03: this is now
-THREE stores, not two.** Claude Code seeded a Hindsight bank of codebase *rationale*
-(`coding-agent::curaition`) and Hermes reads it — see §6.5. The original two-column table
-said Hindsight "never contains codebase documentation", which that bank plainly does, so
-the boundary is restated by the QUESTION each store answers rather than by product:
+**Amended 2026-09-03: this is now THREE stores, not two.** Claude Code seeded a Hindsight
+bank of codebase knowledge (`coding-agent::curaition`) and Hermes reads it — see §6.5. The
+original two-column table said Hindsight "never contains codebase documentation", which
+that bank plainly does.
 
-| | **GBrain** (Railway, knowledge) | **Hindsight `hermes-agent`** (agent memory) | **Hindsight `coding-agent::curaition`** (codebase rationale) |
+**The stores are NOT cleanly separated by subject, and pretending otherwise misleads.**
+GBrain and the coding bank both describe this codebase. The separation that actually holds
+is by ARTIFACT and by WRITER:
+
+| | **GBrain** (Railway) | **Hindsight `hermes-agent`** | **Hindsight `coding-agent::curaition`** |
 |---|---|---|---|
-| Holds | Codebase intelligence (code graph), entities, curated pages, facts about the world/product | Hermes's run learnings, proposal outcomes, review-feedback patterns, standing directives, mental models of its own work | Decisions and their rationale, conventions, architecture choices, in-flight initiatives — extracted from Claude Code sessions and commit messages |
-| Question it answers | "**Where** is it, and what is structurally true?" | "What have **I** done, learned, and been told?" | "**Why** is it this way?" |
-| Hermes reads via | `query`, `recall`, `get_page`, `code_*`, `think` | auto_recall (plugin), `reflect`, mental models | `codebase_memory` MCP server — `recall`, `reflect`, mental models |
+| Artifact | A queryable **code graph** — symbol-level, addressable, re-synced from a clone | Hermes's own **experience log** | **Prose synthesis** — LLM-extracted facts, observations, and 8 curated pages |
+| Answers | "Where is `X` defined, and who calls it?" | "What have **I** done, learned, and been told?" | "Why is it this way, and what convention governs it?" |
+| Granularity | Exact: `path:line`, callers, blast radius | Per-run | Narrative; no line numbers, no addressability |
+| Freshness | A snapshot at a checkpoint SHA | Per-run | Rebuilt on consolidation from sessions + commit messages |
+| Hermes reads via | `query`, `get_page`, `code_*`, `think` | auto_recall (plugin), `reflect`, mental models | `codebase_memory` MCP — `recall`, `reflect`, mental models |
 | Hermes writes via | `put_page` / `extract_facts` — curated knowledge only | `retain` (auto + deliberate) — experiences only | **NEVER.** Read-only, enforced server-side |
-| Written by | Hermes | Hermes | Claude Code only |
-| Never contains | Hermes's diary | Codebase documentation | Code structure ("where"), or Hermes's own inferences |
+| Written by | Hermes | Hermes | **Claude Code only** |
+| Never contains | Hermes's diary | Codebase documentation | Hermes's own inferences |
 
-If a piece of content could go to more than one, it goes to the one matching its
-*kind*, never both.
+**It does hold structural prose, deliberately.** The coding bank's `retain_mission`
+instructs extraction of "project structure facts", and its codebase survey produces
+`repository-component-map` and `repository-tech-stack-and-features`. An earlier draft of
+this table claimed the bank "never contains code structure"; that was wrong, and the
+tooling contradicts it by design. The distinction is **graph vs prose**, not
+*where vs why*: use `code_*` on GBrain for anything you will cite a `path:line` for, and
+the coding bank for the reasoning a graph cannot carry. Never cite code from the coding
+bank — it has no line numbers and its facts are as old as the last consolidation.
+
+**Overlap rule.** Where both could answer, prefer GBrain for *verifiable structure* and the
+coding bank for *stated intent*. Do not copy between them: two stores answering the same
+question from different vintages is how an agent gets confidently wrong.
 
 **Why the third store is read-only to Hermes.** Not caution — a correctness rail. If
 Hermes could `retain` there, its own inferences would consolidate into observations and it

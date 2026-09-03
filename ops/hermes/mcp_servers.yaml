@@ -72,10 +72,11 @@ hindsight:
 # The CODEBASE-RATIONALE bank, read-only. Written by Claude Code sessions in
 # ~/Projects/bitcoin-newsletter-multi-domain (bank `coding-agent::curaition`, seeded
 # 2026-09-03); Hermes only ever READS it. This is a THIRD store — see RUNBOOK §2, which
-# had to be amended to keep the tier boundary honest: GBrain answers "where / what is
-# structurally true", `hermes-agent` answers "what have I done and been told", and this
-# bank answers "WHY is it this way" (decisions, conventions, rationale, in-flight
-# initiatives).
+# had to be amended to keep the tier boundary honest. The split from GBrain is by ARTIFACT,
+# not subject: GBrain is a queryable code GRAPH (symbol-level, addressable, citable as
+# path:line); this bank is LLM-extracted PROSE (decisions, conventions, rationale, plus a
+# prose component-map — it does hold structural summary, deliberately). Never cite code
+# from here: no line numbers, and only as current as the last consolidation.
 #
 # Read-only is load-bearing, not caution. If Hermes could `retain` here, its own
 # inferences would consolidate into observations and it would read them back as codebase
