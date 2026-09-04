@@ -187,3 +187,33 @@ def test_every_ticket_carries_hermes_plus_exactly_one_area_label():
 
     hygiene = (OPS / "prompts" / "hygiene.md").read_text()
     assert "labelled `hermes`" in hygiene and "hermes-proposed" not in hygiene
+
+
+def test_start_sh_prefers_private_pat_for_credentials():
+    """A stale GH_TOKEN must not be able to overwrite a working credential store.
+
+    Found live 2026-09-04: GH_TOKEN went dead (401) while GH_TOKEN_CURAITION_PRIVATE
+    stayed valid. start.sh derives .git-credentials AND gh's stored login from
+    GH_TOKEN on every boot, and Hermes strips GH_TOKEN from agent subprocesses — so
+    the store is the only credential those shells have. The scout's `gh pr list`
+    overlap checks failed 401 while runs still reported "ok". A manual repair does
+    not survive a boot, because start.sh re-derives it.
+    """
+    start = (pathlib.Path(__file__).resolve().parents[1] / "start.sh").read_text()
+    assert "GH_TOKEN_CURAITION_PRIVATE" in start, "start.sh must consider the private PAT"
+
+    resolve = start.index('GH_TOKEN="${GH_TOKEN_CURAITION_PRIVATE:-')
+    # the private var must win, with GH_TOKEN only as fallback
+    assert '${GH_TOKEN_CURAITION_PRIVATE:-${GH_TOKEN:-}}' in start, "private PAT must take precedence"
+
+    # …and the resolution must happen BEFORE every credential WRITE, or a dead
+    # GH_TOKEN still lands in the store. Match the writes themselves, not any
+    # mention — the rationale comment above them names the same paths.
+    writes = (
+        '> "${TERM_HOME}/.git-credentials"',      # git credential store
+        "gh auth login --with-token",             # gh's own stored login
+        'echo "GH_TOKEN=${GH_TOKEN}" >> /data/.hermes/.env',  # env file for subshells
+    )
+    for w in writes:
+        assert w in start, f"expected credential write not found: {w!r}"
+        assert start.index(w) > resolve, f"{w!r} runs before the token is resolved"
