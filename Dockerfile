@@ -23,12 +23,12 @@ ARG HERMES_REF=v2026.7.1
 # We strip the source + apt lists afterwards to keep the image lean.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates git tini && \
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    curl -fsSL --retry 5 --retry-all-errors --retry-max-time 60 https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     # Install gh CLI from GitHub's official apt repo for persistent access
     # across redeploys. Without this, gh must be manually reinstalled from
     # GitHub releases on every container restart.
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+    curl -fsSL --retry 5 --retry-all-errors --retry-max-time 60 https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
         dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && \
     chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
@@ -57,8 +57,15 @@ RUN apt-get update && \
 # anyway, pyproject pins a static version, and start.sh stamps
 # .install_method=docker before any .git fallback. codeload resolves both
 # tags (v2026.8.27) and branches (main) for ${HERMES_REF}.
+# --retry rides out codeload rate limiting: a 2026-09-04 build died on
+# `curl: (22) ... error: 429` here, failing the whole deploy. CUR-1493 moved this
+# off `git clone` because GitHub refuses anonymous git from the Railway builder;
+# codeload throttles the same anonymous access, so the fetch needs to survive it
+# rather than just use a different door. Exponential backoff (no --retry-delay),
+# bounded by --retry-max-time so a bad HERMES_REF still fails in reasonable time.
 RUN mkdir -p /opt/hermes-agent && \
-    curl -fsSL "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/${HERMES_REF}" \
+    curl -fsSL --retry 5 --retry-all-errors --retry-max-time 120 \
+      "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/${HERMES_REF}" \
       | tar -xz --strip-components=1 -C /opt/hermes-agent && \
     cd /opt/hermes-agent && \
     uv pip install --system --no-cache -e ".[all,messaging,tts-premium,honcho,bedrock,anthropic,edge-tts,hindsight,vision]" && \
