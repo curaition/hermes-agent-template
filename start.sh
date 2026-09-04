@@ -134,6 +134,26 @@ materialize_hindsight_wiring /data || echo "WARN: hindsight wiring failed (rc=$?
 # container), so removing the file unconditionally is safe.
 rm -f /data/.hermes/gateway.pid
 
+# Resolve the GitHub credential ONCE, preferring the private-repo PAT.
+#
+# Why (found live 2026-09-04): GH_TOKEN went dead (401) while
+# GH_TOKEN_CURAITION_PRIVATE stayed valid. Every write below derives from
+# GH_TOKEN, so each boot stamped the DEAD value into .git-credentials and gh's
+# stored login — and because Hermes strips GH_TOKEN from agent subprocesses, the
+# store is the only credential those shells have. `gh pr list` overlap checks in
+# the scout were failing 401 while runs still reported "ok": exactly the silent-403
+# class the 2026-08-16 comment below warns about, arriving from a new direction.
+# A manual repair of the store does not survive the next boot, because this block
+# re-derives it. Preferring the private token makes a stale GH_TOKEN harmless
+# instead of authoritative.
+#
+# Falls back to GH_TOKEN when the private var is unset, so behaviour is unchanged
+# on any deployment that never had it.
+if [ -n "${GH_TOKEN_CURAITION_PRIVATE:-}" ] && [ "${GH_TOKEN_CURAITION_PRIVATE}" != "${GH_TOKEN:-}" ]; then
+  echo "start.sh: GH_TOKEN differs from GH_TOKEN_CURAITION_PRIVATE — using the private PAT for git/gh" >&2
+fi
+GH_TOKEN="${GH_TOKEN_CURAITION_PRIVATE:-${GH_TOKEN:-}}"
+
 # Explicitly export GH_TOKEN so all hermes-spawned terminal sessions,
 # delegations, and cron jobs reliably inherit it. Railway sets this as an
 # env var on PID 1, but it doesn't always propagate to shell child processes.
