@@ -441,9 +441,10 @@ Want: `codebase_memory` listed, and exactly the five allowlisted tools (`recall`
 
 **4. Name it in the prompts (CUR-1515, done 2026-09-04).** MCP tools do load in cron, but the
 agent only uses what the prompt tells it to — the reason §6.1's plugin tier needed this
-server at all. `scout.md` and `atlas.md` now consult `codebase_memory`: mental models
-first, `reflect` only when those are too shallow, and no identifier leaves the bank
-un-checked. `hygiene.md` is untouched — it reviews proposal outcomes, not code.
+server at all. `scout.md`, `atlas.md` and `implement.md` now consult `codebase_memory`:
+mental models first, `reflect` only when those are too shallow, and no identifier leaves
+the bank un-checked (scout/atlas before judging; implement after issue verification, before
+writing code). `hygiene.md` is untouched — it reviews proposal outcomes, not code.
 
 **Prompts do NOT ship as an env var** (an earlier draft of this section said they did).
 They are baked into each cron job at creation by `hermes cron create` inside the container,
