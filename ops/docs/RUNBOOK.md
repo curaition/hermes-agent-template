@@ -462,11 +462,16 @@ Job ids as of 2026-09-04: `hermes-scout` `f95d0dc87999`, `hermes-hygiene` `ce07c
 `hermes-atlas` `e88814e07b7a`, `hermes-implement` `e01c85b81687`. Confirm with
 `hermes cron list --all` — `list` alone hides paused jobs.
 
-⚠️ **`hermes-implement` (0 6,18 * * *, active) has no prompt file in this repo.** It runs
-twice daily against `/data/work/curaition` and is the job that actually implements backlog
-issues, so it is arguably the one that most needs `codebase_memory` — but its prompt exists
-only on the box. Capture it into `ops/hermes/prompts/` before editing it, or the next
-person re-running `cron_install.sh` on a fresh box silently loses it.
+All four prompts are captured in this repo (as of 2026-09-04; `implement.md` was read back
+from the live job store at `/data/.hermes/cron/jobs.json` on the box, where per-job prompts
+actually live). That capture closed a real drift window: the live jobs had been edited in
+place after the repo was last touched (isolated-worktree mandate 2026-08-27, the
+read-`docs/ops/GUARDRAILS.md` file-wins rule 2026-09-03), so the repo files were BEHIND the
+box — pushing repo prompt files blind would have regressed both guards on three live jobs.
+Rule for the future: before any `hermes cron edit`, diff the repo file against the live
+prompt and reconcile first; the repo file is the source of truth only once it matches what
+the job actually runs. The `codebase_memory` steps (CUR-1515) were layered onto the
+reconciled scout/atlas baselines.
 
 **Does this affect Claude Code?** No. Its `hindsight_*` tools are served by a local Node
 MCP server that calls the REST API (`/v1/...`), not the `/mcp/` endpoint that

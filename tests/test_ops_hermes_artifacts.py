@@ -127,8 +127,10 @@ def test_atlas_prompt_gates_absence_claims_and_marks_doc_provenance():
     let a partial list read as sufficient; it is now a bare `.` everywhere.
     """
     p = (OPS / "prompts" / "atlas.md").read_text()
-    # one command, whole repo — a tree list is what failed twice
-    assert "git grep -n <symbol-or-term> -- ." in p
+    # one command, whole repo — a tree list is what failed twice. The live prompt
+    # runs it worktree-scoped (git -C "$WT" grep ... -- .) since all analysis happens
+    # inside the isolated worktree; the bare `.` is the load-bearing part.
+    assert "grep -n <symbol-or-term> -- ." in p
     assert "a bare `.`, never a tree list" in p
     assert "Absence is the hardest claim to make" in p
     assert "it is an Open question, not an assertion" in p

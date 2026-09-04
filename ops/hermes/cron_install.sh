@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Create the three Hermes cron jobs, PAUSED (spec D8). Run INSIDE the Hermes container:
+# Create the four Hermes cron jobs, PAUSED (spec D8). Run INSIDE the Hermes container:
 #   scp -r ops/hermes/prompts railway-hermes-agent:/data/work/prompts   (or paste)
 #   ssh railway-hermes-agent 'PROMPTS_DIR=/data/work/prompts bash -s' < ops/hermes/cron_install.sh
 # Unpause when ready: hermes cron resume <id>. Manual run: hermes cron run <id>.
 set -euo pipefail
 PROMPTS_DIR="${PROMPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/prompts}"
 WORKDIR="${WORKDIR:-/data/work/curaition}"
-for f in scout.md hygiene.md atlas.md; do
+for f in scout.md hygiene.md atlas.md implement.md; do
   [ -s "$PROMPTS_DIR/$f" ] || { echo "missing/empty prompt: $PROMPTS_DIR/$f" >&2; exit 1; }
 done
 # --all is load-bearing: `hermes cron list` shows ACTIVE jobs only, and every job this
@@ -29,4 +29,8 @@ mk hermes-hygiene "0 3 * * 0"     hygiene.md
 # atlas walks the module queue daily at 04:00 UTC (after the 02:00 scout, off-peak);
 # 3 modules/run covers the 90-unit tree in ~30 days, then flips to revisit mode.
 mk hermes-atlas   "0 4 * * *"     atlas.md
+# implement pushes branches for Size S issues (06:00/18:00 UTC); captured from the live
+# job store 2026-09-04 after drifting ahead of the repo (CUR-1515 follow-up). Created
+# PAUSED like the others - a human unpauses it on a fresh box.
+mk hermes-implement "0 6,18 * * *" implement.md
 echo "next: hermes cron run <scout-id> for a manual pass; hermes cron resume <id> when trusted."
