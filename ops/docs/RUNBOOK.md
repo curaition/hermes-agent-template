@@ -439,12 +439,34 @@ railway ssh ... -- hermes mcp test codebase_memory                 # handshake +
 Want: `codebase_memory` listed, and exactly the five allowlisted tools (`recall`,
 `reflect`, `list_mental_models`, `get_mental_model`, `get_bank`) — no `retain`.
 
-**4. Name it in the prompts.** MCP tools do load in cron, but the agent only uses what the
-prompt tells it to (the reason §6.1's plugin tier needed this server at all). For the scout
-to benefit, `ops/hermes/prompts/*.md` must instruct it to consult `codebase_memory` —
-mental models first (the five curated pages are the distilled "why"), `reflect` only when
-those are too shallow. **Not done in this PR** — prompt changes are a separate, reviewable
-concern.
+**4. Name it in the prompts (CUR-1515, done 2026-09-04).** MCP tools do load in cron, but the
+agent only uses what the prompt tells it to — the reason §6.1's plugin tier needed this
+server at all. `scout.md` and `atlas.md` now consult `codebase_memory`: mental models
+first, `reflect` only when those are too shallow, and no identifier leaves the bank
+un-checked. `hygiene.md` is untouched — it reviews proposal outcomes, not code.
+
+**Prompts do NOT ship as an env var** (an earlier draft of this section said they did).
+They are baked into each cron job at creation by `hermes cron create` inside the container,
+and **`cron_install.sh` skips any job whose name already exists** — it is a create-only
+installer, so re-running it changes nothing. Updating a live prompt is therefore:
+
+```bash
+# from the repo, after the prompt change is merged
+railway ssh -p 5a884f8f-dd5a-4bc3-829f-090e16b7a194 -s ebd1445c-d175-44e9-a662-b3041fe3dae3 \
+  -e b8daa185-8abb-487f-93aa-232980b06415 -- \
+  hermes cron edit f95d0dc87999 --prompt "$(cat ops/hermes/prompts/scout.md)"   # hermes-scout
+#          …and e88814e07b7a for hermes-atlas
+```
+
+Job ids as of 2026-09-04: `hermes-scout` `f95d0dc87999`, `hermes-hygiene` `ce07cb27de73`,
+`hermes-atlas` `e88814e07b7a`, `hermes-implement` `e01c85b81687`. Confirm with
+`hermes cron list --all` — `list` alone hides paused jobs.
+
+⚠️ **`hermes-implement` (0 6,18 * * *, active) has no prompt file in this repo.** It runs
+twice daily against `/data/work/curaition` and is the job that actually implements backlog
+issues, so it is arguably the one that most needs `codebase_memory` — but its prompt exists
+only on the box. Capture it into `ops/hermes/prompts/` before editing it, or the next
+person re-running `cron_install.sh` on a fresh box silently loses it.
 
 **Does this affect Claude Code?** No. Its `hindsight_*` tools are served by a local Node
 MCP server that calls the REST API (`/v1/...`), not the `/mcp/` endpoint that
