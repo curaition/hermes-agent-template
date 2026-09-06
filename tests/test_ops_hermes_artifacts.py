@@ -217,3 +217,24 @@ def test_start_sh_prefers_private_pat_for_credentials():
     for w in writes:
         assert w in start, f"expected credential write not found: {w!r}"
         assert start.index(w) > resolve, f"{w!r} runs before the token is resolved"
+
+
+def test_start_sh_prefers_the_github_app_and_keeps_the_pat_block_as_fallback():
+    """CUR-1538: the App mint runs first; every PAT-derived write is gated on it failing.
+    A regression that re-runs the PAT block after a successful App install would stamp
+    the (possibly dead) PAT over the fresh installation token — the 2026-09-04 class."""
+    root = pathlib.Path(__file__).resolve().parents[1]
+    s = (root / "start.sh").read_text()
+    app = s.index("python3 /app/bootstrap/gh_app_token.py --install")
+    pat = s.index('GH_TOKEN="${GH_TOKEN_CURAITION_PRIVATE:-${GH_TOKEN:-}}"')
+    assert app < pat, "the App mint must run before the PAT resolution"
+    assert 'GH_TOKEN="$(python3 /app/bootstrap/gh_app_token.py --print' in s   # gateway inherits the App token
+    assert s.count('[ "$GH_APP_ACTIVE" -ne 1 ]') == 3     # PAT resolution, .env write, terminal-HOME store
+    assert '"$rc" -eq 3' in s and "PAT fallback" in s      # unset vars fall back loudly, other failures WARN
+    assert "exec python /app/server.py" in s[pat:]         # fallback never blocks boot
+
+
+def test_env_example_declares_the_app_vars_before_the_legacy_pat():
+    lines = (OPS / "env.example").read_text().splitlines()
+    keys = [l.partition("=")[0] for l in lines if l and not l.startswith("#")]
+    assert keys.index("GH_APP_ID") < keys.index("GH_APP_PRIVATE_KEY_B64") < keys.index("GH_TOKEN")

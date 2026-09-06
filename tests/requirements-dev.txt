@@ -1,0 +1,4 @@
+# Test-only deps for tests/run_all.sh (the container gets cryptography via hermes-agent itself).
+pytest
+pyyaml
+cryptography

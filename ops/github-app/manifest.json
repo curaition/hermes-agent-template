@@ -1,0 +1,20 @@
+{
+  "name": "curaition-hermes",
+  "url": "https://github.com/curaition/hermes-agent-template",
+  "description": "Identity for the Hermes owner swarm: branches, PRs, labels and comments on curaition/curaition show curaition-hermes[bot]. Never a ruleset bypass actor (spec D11).",
+  "hook_attributes": {
+    "url": "https://hermes.curaition.xyz/github/webhook-unused",
+    "active": false
+  },
+  "redirect_url": "http://127.0.0.1:8766/callback",
+  "public": false,
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write",
+    "issues": "write",
+    "checks": "read",
+    "actions": "write",
+    "metadata": "read"
+  },
+  "default_events": []
+}

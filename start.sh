@@ -134,7 +134,32 @@ materialize_hindsight_wiring /data || echo "WARN: hindsight wiring failed (rc=$?
 # container), so removing the file unconditionally is safe.
 rm -f /data/.hermes/gateway.pid
 
+# GitHub App identity (owner swarm Step 1, CUR-1538) — preferred over the PAT path
+# below. PRs, labels and comments show curaition-hermes[bot], and the owner
+# preflight's identity check (`gh api /installation/repositories`) only passes
+# with an installation token; a PAT is refused by design. Installation tokens
+# live ONE HOUR, so this is only the boot mint: every owner run re-runs
+# `python3 /app/bootstrap/gh_app_token.py --install` as its first step.
+# The script writes the same three things the PAT block writes (.git-credentials,
+# gh login under the terminal HOME, GH_TOKEN in .hermes/.env), so on success the
+# PAT block is skipped entirely. Exit 3 = App vars unset (PAT fallback, loudly);
+# any other failure = App configured but broken — still fall back so the gateway
+# boots, but say so, because the owner crons will fail preflight until it is fixed.
+GH_APP_ACTIVE=0
+if python3 /app/bootstrap/gh_app_token.py --install; then
+  GH_APP_ACTIVE=1
+  GH_TOKEN="$(python3 /app/bootstrap/gh_app_token.py --print 2>/dev/null)" || GH_TOKEN=""
+else
+  rc=$?
+  if [ "$rc" -eq 3 ]; then
+    echo "start.sh: no GitHub App identity (GH_APP_ID/GH_APP_PRIVATE_KEY_B64 unset) — PAT fallback; owner preflight --expect-app-identity will refuse it" >&2
+  else
+    echo "WARN: gh_app_token.py --install failed (rc=$rc) — PAT fallback for this boot; owner runs will fail preflight" >&2
+  fi
+fi
+
 # Resolve the GitHub credential ONCE, preferring the private-repo PAT.
+# (PAT path — only when the GitHub App above is not active.)
 #
 # Why (found live 2026-09-04): GH_TOKEN went dead (401) while
 # GH_TOKEN_CURAITION_PRIVATE stayed valid. Every write below derives from
@@ -149,10 +174,12 @@ rm -f /data/.hermes/gateway.pid
 #
 # Falls back to GH_TOKEN when the private var is unset, so behaviour is unchanged
 # on any deployment that never had it.
-if [ -n "${GH_TOKEN_CURAITION_PRIVATE:-}" ] && [ "${GH_TOKEN_CURAITION_PRIVATE}" != "${GH_TOKEN:-}" ]; then
-  echo "start.sh: GH_TOKEN differs from GH_TOKEN_CURAITION_PRIVATE — using the private PAT for git/gh" >&2
+if [ "$GH_APP_ACTIVE" -ne 1 ]; then
+  if [ -n "${GH_TOKEN_CURAITION_PRIVATE:-}" ] && [ "${GH_TOKEN_CURAITION_PRIVATE}" != "${GH_TOKEN:-}" ]; then
+    echo "start.sh: GH_TOKEN differs from GH_TOKEN_CURAITION_PRIVATE — using the private PAT for git/gh" >&2
+  fi
+  GH_TOKEN="${GH_TOKEN_CURAITION_PRIVATE:-${GH_TOKEN:-}}"
 fi
-GH_TOKEN="${GH_TOKEN_CURAITION_PRIVATE:-${GH_TOKEN:-}}"
 
 # Explicitly export GH_TOKEN so all hermes-spawned terminal sessions,
 # delegations, and cron jobs reliably inherit it. Railway sets this as an
@@ -163,7 +190,7 @@ export GH_TOKEN
 # Also write GH_TOKEN to .hermes/.env so all hermes-spawned terminal sessions,
 # cron jobs, and delegations inherit it via the env file (more reliable than
 # shell export alone, which does not propagate to ephemeral bash snapshots).
-if [ -n "${GH_TOKEN}" ]; then
+if [ "$GH_APP_ACTIVE" -ne 1 ] && [ -n "${GH_TOKEN}" ]; then
   if grep -q "^GH_TOKEN=" /data/.hermes/.env 2>/dev/null; then
     sed -i "s|^GH_TOKEN=.*|GH_TOKEN=${GH_TOKEN}|" /data/.hermes/.env
   else
@@ -178,7 +205,7 @@ fi
 # with GH_TOKEN on every boot — a stale store here produced silent anonymous 403s
 # in the scout (found live 2026-08-16). Env is the truth; the store is derived.
 TERM_HOME=/data/.hermes/home
-if [ -n "${GH_TOKEN}" ]; then
+if [ "$GH_APP_ACTIVE" -ne 1 ] && [ -n "${GH_TOKEN}" ]; then
   mkdir -p "${TERM_HOME}/.config/gh"
   ( umask 077; printf 'https://x-access-token:%s@github.com\n' "${GH_TOKEN}" > "${TERM_HOME}/.git-credentials" )
   if ! grep -q 'helper = store --file=/data/.hermes/home/.git-credentials' "${TERM_HOME}/.gitconfig" 2>/dev/null; then
