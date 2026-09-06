@@ -8,11 +8,11 @@ FIRST read docs/ops/GUARDRAILS.md in your worktree — canonical; where it and y
 ## 1. ISOLATED WORKTREE (MANDATORY — contamination guard, CUR-1534)
 Never mutate the shared clone at /data/work/curaition and never touch another agent's `/tmp/curaition-*`.
 1. `cd /data/work/curaition && git fetch origin`
-2. `WT=/tmp/curaition-owner-{{OWNER}}`; `git worktree remove --force "$WT" 2>/dev/null; git worktree prune`
+2. `WT=/tmp/curaition-owner-{{OWNER}}`; `BR=owner/{{OWNER}}/$(date -u +%Y%m%d)`; `git worktree remove --force "$WT" 2>/dev/null; git worktree prune; git branch -D "$BR" 2>/dev/null` — a stale same-day branch makes step 3 fail.
 3. `git worktree add -b owner/{{OWNER}}/$(date -u +%Y%m%d) "$WT" origin/integration`
 4. `bash "$WT/scripts/ops/bootstrap_worktree.sh" --container "$WT"` — it refuses to continue if the hooks did not install; a refusal ends the run.
 5. **cwd assertion before every edit, checkout, revert or commit:** `test "$(git -C "$WT" rev-parse --show-toplevel)" = "$WT"` and your shell's `pwd` is inside `$WT`. If either is false, stop and report — you are about to edit the wrong checkout.
-6. On exit (every path, including failures): `cd /data/work/curaition && git worktree remove --force "$WT" && git worktree prune` — unless the run ended with a red PR you closed; then keep the branch, remove the worktree anyway.
+6. On exit (every path, including failures): `cd /data/work/curaition && git worktree remove --force "$WT" && git worktree prune && git branch -D "$BR"` — unless the run ended with a red PR you closed; then keep the branch (skip the `git branch -D`), remove the worktree anyway.
 
 ## 2. MEMORY (cron sessions have no memory plugin — use the MCP tools explicitly)
 `mcp_hindsight_reflect` (bank `hermes-agent`) on "{{OWNER}}: rejected ideas, prior owner runs, feedback" — rejections are binding (rule 5). Read the codebase-rationale bank before judging or changing anything: `mcp_codebase_memory_get_mental_model` on `Conventions and patterns` and `Key decisions and rationale`, `mcp_codebase_memory_recall` on your package. It is READ-ONLY and its identifiers are reconstructed prose (~60% wrong on 2026-09-04): confirm every CUR number, `path:line` and symbol with Linear or `git -C "$WT" grep -n <symbol> -- .` before it steers anything.
