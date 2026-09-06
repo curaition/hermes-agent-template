@@ -72,9 +72,31 @@ def test_render_soul_is_persona_plus_guardrails(tmp_path):
     out = subprocess.run(["bash", str(root / "ops/hermes/render_soul.sh")], check=True, capture_output=True, text=True).stdout
     prefix = (root / "ops/hermes/soul_prefix.md").read_text()
     guard = (root / "ops/GUARDRAILS.md").read_text()
+    rules = (root / "ops/hermes/rules.md").read_text()
     assert out.startswith(prefix)
-    assert out.endswith(guard)
+    assert guard in out
+    assert out.endswith(rules)                      # universal rules close the persona (CUR-1539)
+    assert out.index(guard) < out.index(rules)
     assert "Hard rules" in out
+
+
+def test_vendored_rules_are_generated_and_sha_stamped():
+    """ops/hermes/rules.md is the product repo's canonical universal-rules section, vendored
+    (CUR-1539). It must carry the generator marker + source sha so drift is provable from the
+    product side (`check_agent_rules_parity --hermes`), and keep the ###/rule-id shape."""
+    import re
+    rules = (OPS / "rules.md").read_text()
+    first = rules.splitlines()[0]
+    assert first.startswith("<!-- agent-rules: vendored src-sha:")
+    assert re.search(r"src-sha:[0-9a-f]{12}", first)
+    assert "Never edit by hand" in first
+    assert "## Universal hard rules (every role)" in rules
+    headings = [l for l in rules.splitlines() if l.startswith("### ")]
+    ids = re.findall(r"<!-- rule-id: ([a-z0-9-]+) priority: \d+ -->", rules)
+    assert len(headings) >= 10 and len(headings) == len(ids) == len(set(ids))
+    for must in ("staging-is-production", "never-store-or-echo-secrets", "isolated-worktrees-only",
+                 "one-pr-per-subsystem-per-session", "prose-not-graph"):
+        assert must in ids
 
 
 def test_start_sh_reapplies_soul_every_boot_and_leaves_user_md_write_once():
