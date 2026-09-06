@@ -19,5 +19,6 @@ Design: `docs/DESIGN.md`. Runbook (phase order, secrets manifest, verification):
 | `hermes/hindsight.config.json` | Plugin config — base64 → `HERMES_HINDSIGHT_CONFIG_JSON` |
 | `hermes/prompts/*.md` | Cron job prompts |
 | `hermes/cron_install.sh` | Creates + pauses the two cron jobs (run inside the container) |
+| `github-app/manifest.json`, `github-app/create_app.py` | The `curaition-hermes` GitHub App (owner swarm Step 1, CUR-1538): what is registered and the one-click local manifest flow. `bootstrap/gh_app_token.py` mints its installation token at boot and per owner run — `github-app/README.md` |
 
 Pushes that touch only `ops/**` or `*.md` do NOT redeploy Hermes (`railway.toml` watchPatterns).

@@ -315,7 +315,13 @@ Unchanged from the previous iteration:
   label in team CUR once. Trim to: `list_issues`/`search`, `get_issue`,
   `save_issue`, `list_issue_labels`, `save_comment`. Consider a dedicated
   Linear identity for attribution/revocation.
-- **Repo:** `GH_TOKEN` must be a fine-grained PAT, `curaition-xyz/curaition`
+- **Repo (owner swarm, from 2026-09-06):** the identity is the **`curaition-hermes`
+  GitHub App** — `GH_APP_ID` + `GH_APP_PRIVATE_KEY_B64` on the Railway service,
+  registered and installed per `ops/github-app/README.md`. `start.sh` runs
+  `bootstrap/gh_app_token.py --install` at boot and every owner run re-runs it first
+  (installation tokens live one hour); it writes the same store/gh login/.env the PAT
+  block used to. The PAT path below is the fallback only while the App vars are unset.
+- **Repo (legacy PAT path):** `GH_TOKEN` must be a fine-grained PAT, `curaition-xyz/curaition`
   only, **Contents: Read + Metadata: Read** — rotate down if it has write.
   Add **Pull requests: Read** too — the scout runs `gh pr list` for in-flight
   overlap and a Contents-only PAT gets `Resource not accessible by personal
