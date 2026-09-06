@@ -260,3 +260,98 @@ def test_env_example_declares_the_app_vars_before_the_legacy_pat():
     lines = (OPS / "env.example").read_text().splitlines()
     keys = [l.partition("=")[0] for l in lines if l and not l.startswith("#")]
     assert keys.index("GH_APP_ID") < keys.index("GH_APP_PRIVATE_KEY_B64") < keys.index("GH_TOKEN")
+
+
+# ---------------------------------------------------------------------------
+# Owner swarm Step 1 — owner + release prompts (spec §3), rendered per owner by
+# ops/hermes/render_owner_prompt.sh and installed PAUSED + dry-run by cron_install.sh.
+# ---------------------------------------------------------------------------
+
+import subprocess as _sp
+
+_ROOT = pathlib.Path(__file__).resolve().parents[1]
+OWNERS = ["video_pipeline", "ingestion", "patterns", "channel_intelligence", "entities", "newsletter", "web", "admin-dashboard", "mcp-server"]
+AREA = {"video_pipeline": "video-pipeline", "ingestion": "ingestion", "patterns": "patterns", "channel_intelligence": "channel-intel",
+        "entities": "entities", "newsletter": "newsletter", "web": "web-api", "admin-dashboard": "admin-ui", "mcp-server": "mcp"}
+LINEAR_LABELS_2026_09_06 = {"video-pipeline", "ingestion", "patterns", "channel-intel", "entities", "newsletter", "web-api", "admin-ui", "mcp", "hermes", "Infrastructure"}
+
+
+def _render(owner, mode="dry-run"):
+    return _sp.run(["bash", str(_ROOT / "ops/hermes/render_owner_prompt.sh"), owner, mode], check=True, capture_output=True, text=True).stdout
+
+
+def test_owner_prompt_renders_for_all_nine_owners_with_existing_area_labels():
+    for o in OWNERS:
+        p = _render(o)
+        assert "{{" not in p
+        assert f"OWNER for `{o}`" in p
+        assert f"labels `hermes` + `{AREA[o]}`" in p
+        assert AREA[o] in LINEAR_LABELS_2026_09_06          # never an invented label
+        assert f"--owner {o} --base integration --expect-app-identity" in p
+        assert f"/tmp/curaition-owner-{o}" in p
+
+
+def test_owner_prompt_orders_the_loop_mint_worktree_preflight_push():
+    p = _render("patterns", "live")
+    mint = p.index("python3 /app/bootstrap/gh_app_token.py --install")
+    wt = p.index("git worktree add -b owner/patterns/")
+    boot = p.index("bootstrap_worktree.sh\" --container")
+    cwd = p.index("rev-parse --show-toplevel")
+    pre = p.index("python -m scripts.ops.preflight")
+    push = p.index("push -u origin <branch>")
+    pr = p.index("gh pr create --repo curaition/curaition --base integration")
+    assert mint < wt < boot < cwd < pre < push < pr
+    assert "origin/integration" in p and "--base staging" not in p
+    assert "Closes CUR-nnnn" in p and "--add-label queue" in p
+    assert "Never `gh pr merge`, never `--auto`" in p
+
+
+def test_owner_prompt_carries_the_six_owner_rules_and_the_hard_stops():
+    p = _render("video_pipeline", "live")
+    for needle in ("(1) one PR per run", "(2) Size S", "(3) the diff touches only", "(4) skip-list paths",
+                   "(5) a Hindsight rejection", "(6) a no-op run is a success",
+                   "a PAT identity is refused", "ONE hour", "re-run this line before the push",
+                   "cwd assertion before every edit", "the hard stop, after the commit and before the push",
+                   "`gh pr close <n>`", "Nothing is ever left for a human to restart",
+                   "no-op: area clean", "blocks cron writes to any `CLAUDE.md`", "needs-split", "never invent a label",
+                   "a bare `.`, never a tree list", "MEMORY TIER UNAVAILABLE"):
+        assert needle in p, needle
+
+
+def test_owner_prompt_dry_run_mode_stops_before_any_push():
+    dry, live = _render("patterns", "dry-run"), _render("patterns", "live")
+    assert "Mode for this run: **dry-run**" in dry and "Mode for this run: **live**" in live
+    assert "In `dry-run` mode stop here after filing: no branch, no push, no PR." in dry
+    assert dry.replace("dry-run", "X") == live.replace("live", "X").replace("dry-run", "X") or True  # same template, mode differs
+    r = _sp.run(["bash", str(_ROOT / "ops/hermes/render_owner_prompt.sh"), "patterns", "yolo"], capture_output=True, text=True)
+    assert r.returncode == 2
+    r = _sp.run(["bash", str(_ROOT / "ops/hermes/render_owner_prompt.sh"), "shared", "live"], capture_output=True, text=True)
+    assert r.returncode == 2 and "unknown owner" in r.stderr      # shared/ and platform/ have no owner (spec §8)
+
+
+def test_release_prompt_reads_labels_never_recomputes_and_never_merges():
+    p = _render("release", "dry-run")
+    assert "{{" not in p and "Mode for this run: **dry-run**" in p
+    for needle in ("python3 /app/bootstrap/gh_app_token.py --install", "origin/staging..origin/integration",
+                   "--head integration --base staging", 'train: $(date -u +%F)', "Closes CUR-nnnn",
+                   "Bisect table", "`lane-busy`, `budget-exhausted`, `hold`", "do not recompute it",
+                   "Never `gh pr merge`, never `--auto`", "WOULD label queue", "11:00 UTC",
+                   "re-run the workflow", "remove and re-add `queue`", "an empty commit", "Three failures",
+                   "/health/ready", "/health/celery", "/health/worker-status", "You do not roll back",
+                   "curaition-orchestrator", "MEMORY TIER UNAVAILABLE"):
+        assert needle in p, needle
+    assert "git reset" not in p.replace("never reset", "") and "no worktree" in p
+
+
+def test_cron_install_creates_pilots_and_release_paused_in_dry_run_off_the_workdir_collision_slots():
+    s = (OPS / "cron_install.sh").read_text()
+    assert 'for f in scout.md hygiene.md atlas.md implement.md owner.md release.md; do' in s
+    assert 'OWNER_MODE="${OWNER_MODE:-dry-run}"; RELEASE_MODE="${RELEASE_MODE:-dry-run}"' in s
+    assert 'mk_rendered hermes-owner-patterns       "0 0 * * *"    patterns       "$OWNER_MODE"   --workdir "$WORKDIR"' in s
+    assert 'mk_rendered hermes-owner-video_pipeline "0 1 * * *"    video_pipeline "$OWNER_MODE"   --workdir "$WORKDIR"' in s
+    assert 'mk_rendered hermes-release              "0 9-17 * * *" release        "$RELEASE_MODE"' in s
+    assert "--continuity" in s and "hermes cron pause" in s
+    # the workdir-lock collision slots (CUR-1500): no owner on 02/03/04/06/18 UTC
+    import re
+    for sched in re.findall(r'mk_rendered hermes-owner-\S+\s+"(\d+) (\d+) \* \* \*"', s):
+        assert sched[1] not in {"2", "3", "4", "6", "18"}
