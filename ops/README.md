@@ -5,7 +5,8 @@ Design: `docs/DESIGN.md`. Runbook (phase order, secrets manifest, verification):
 | Path | Purpose |
 |---|---|
 | `GUARDRAILS.md` | Hermes's standing instructions as issue scout. Delivered as the tail of `SOUL.md` (system persona) via `HERMES_SOUL_MD=$(bash ops/hermes/render_soul.sh \| base64)`, **re-applied every boot** — see RUNBOOK §6.3. (Not `USER.md`: that is the agent-written profile with a 1,375-char cap.) |
-| `hermes/soul_prefix.md`, `hermes/render_soul.sh` | Stock persona paragraph + renderer that appends `GUARDRAILS.md` → `HERMES_SOUL_MD` |
+| `hermes/soul_prefix.md`, `hermes/render_soul.sh` | Stock persona paragraph + renderer that appends `GUARDRAILS.md` and then `hermes/rules.md` → `HERMES_SOUL_MD` |
+| `hermes/rules.md` | **Generated** — the product repo's canonical universal rules (`docs/ops/GUARDRAILS.md`), vendored by `python -m scripts.ops.apply_agent_rules --target hermes --out ops/hermes/rules.md` (CUR-1539). Never hand-edit; regenerate when the canonical section changes and re-set `HERMES_SOUL_MD`. |
 | `hindsight/docker-compose.yaml` | Hindsight app container (DB is a separate Coolify database resource) |
 | `hindsight/hetzner_firewall.sh` | Hetzner Cloud Firewall: inbound 22/80/443 only, idempotent |
 | `hindsight/box_prep.sh` | On-box: 2G swap (run as root over SSH) |

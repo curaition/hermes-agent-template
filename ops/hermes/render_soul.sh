@@ -8,4 +8,8 @@
 # memory on the live volume (found live 2026-08-16, Part B).
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cat "$here/soul_prefix.md"; printf '\n'; cat "$here/../GUARDRAILS.md"
+# ops/hermes/rules.md is GENERATED from the product repo's canonical rules section
+# (`python -m scripts.ops.apply_agent_rules --target hermes --out ops/hermes/rules.md`, CUR-1539)
+# and appended last so the universal rules close the persona. Never hand-edit it; the product
+# repo's `check_agent_rules_parity --hermes` proves it current.
+cat "$here/soul_prefix.md"; printf '\n'; cat "$here/../GUARDRAILS.md"; printf '\n'; cat "$here/rules.md"
