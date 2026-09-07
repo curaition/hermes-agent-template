@@ -291,6 +291,18 @@ def test_owner_prompt_renders_for_all_nine_owners_with_existing_area_labels():
         assert f"/tmp/curaition-owner-{o}" in p
 
 
+def test_owner_prompt_deletes_the_local_branch_before_add_and_on_cleanup():
+    # 2026-09-06 supervised dry-runs left owner/<pkg>/<date> behind on the box after
+    # `worktree remove`; a same-day rerun then fails at `git worktree add -b`.
+    p = _render("patterns", "dry-run")
+    add = p.index("git worktree add -b owner/patterns/")
+    pre_delete = p.index('git branch -D "$BR" 2>/dev/null')
+    assert pre_delete < add
+    cleanup = p.index("git worktree prune && git branch -D \"$BR\"")
+    assert cleanup > add
+    assert "keep the branch (skip the `git branch -D`)" in p
+
+
 def test_owner_prompt_orders_the_loop_mint_worktree_preflight_push():
     p = _render("patterns", "live")
     mint = p.index("python3 /app/bootstrap/gh_app_token.py --install")
