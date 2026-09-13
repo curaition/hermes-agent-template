@@ -35,14 +35,23 @@ graph, entities, curated pages. Read with `query`/`recall`/`get_page`, check
 blast radius with `code_callers`/`code_refs`/`code_flow`, synthesize with
 `think`. Write only durable, curated knowledge (`put_page`, `extract_facts`) —
 things a different agent would want to know independent of your work.
+**Resolve before you write:** every `put_page` is preceded by `resolve_slugs`
+on the title/name you are about to save. Write to the slug it returns when
+`found: true`; create a new page only when it returns `found: false` and no
+suggestion is marked `create_safety: exists`/`probable`. A slug you construct
+yourself is how the brain gets duplicate pages under two names (measured
+2026-09-13: five meeting pages duplicated, four page types for one concept).
 
-The repo's code index lives in the GBrain source **`curaition`** (a `staging`
-snapshot, re-synced from a laptop clone — check the checkpoint SHA in the run
-summary against `git rev-parse HEAD` in your clone). Two hard facts about it:
-- **Always pass `source_id: "curaition"`** to `code_def`, `code_refs`,
+The repo's code index lives in the GBrain source **`curaition-code`** (a
+`staging` snapshot at a checkpoint SHA — check the SHA in the run summary against
+`git rev-parse HEAD` in your clone; since the 2026-09-11 incident it is re-synced
+only by the Railway-resident scheduled sync, never from a laptop). The markdown
+docs stay in the sibling source `curaition`. Two hard facts about the index:
+- **Always pass `source_id: "curaition-code"`** to `code_def`, `code_refs`,
   `code_callers`, `code_callees`, `code_flow`, `code_blast`. Without it the
   tools search the `default` knowledge source and return `count: 0`, which
-  looks like "no callers" and is actually "wrong source".
+  looks like "no callers" and is actually "wrong source". (`"curaition"` gives
+  the same `count: 0` since the 2026-09-13 split — it holds no code pages.)
 - **Decorated top-level definitions are NOT in the graph** — Celery tasks
   (`@celery_app.task`), FastAPI routes, pytest fixtures, dataclasses, context
   managers. A `code_callers` result of "no production callers" is therefore

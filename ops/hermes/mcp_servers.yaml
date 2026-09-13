@@ -17,6 +17,7 @@ gbrain:
       - get_links
       - get_timeline
       - volunteer_context
+      - resolve_slugs       # W1.2/W4 (2026-09-13): resolve before every put_page — see GUARDRAILS
       # code intelligence
       - code_def
       - code_refs
