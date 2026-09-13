@@ -6,7 +6,7 @@ import yaml
 OPS = Path(__file__).resolve().parents[1] / "ops" / "hermes"
 
 GBRAIN_ALLOW = {"query","search","recall","get_page","get_chunks","get_backlinks","get_links","get_timeline",
-                "volunteer_context","code_def","code_refs","code_callers","code_callees","code_flow","code_blast",
+                "volunteer_context","resolve_slugs","code_def","code_refs","code_callers","code_callees","code_flow","code_blast",
                 "put_page","extract_facts","add_timeline_entry","add_tag","add_link","think"}
 GBRAIN_DENY = {"delete_page","forget_fact","revert_version","restore_page","schema_apply_mutations",
                "reload_schema_pack","run_skillopt","sources_remove","cancel_job","pause_job","resume_job",
@@ -126,7 +126,8 @@ def test_atlas_prompt_binds_the_agent_to_the_queue_and_the_evidence_gate():
     assert "--sha <SHA> --page <slug> --evidence <path:line>" in p
     assert "do not mark it done" in p
     # the traps we have already paid for once
-    assert 'source_id: "curaition"' in p and "not_built" in p
+    assert 'source_id: "curaition-code"' in p and "not_built" in p
+    assert 'source_id: "curaition"' not in p   # W1.2 (2026-09-13): code moved to its own source
     assert "git grep -n <symbol> -- ." in p
     assert "mcp_hindsight_" in p and "NO memory plugin" in p
     # tickets are capped and deduped, dossiers are the deliverable
