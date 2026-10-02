@@ -55,7 +55,7 @@ from this doc). Phase 7's OAuth step and any Railway env changes need Rick.
 |---|---|---|
 | `HINDSIGHT_DB_PASSWORD` | `openssl rand -hex 32` | Coolify stack env |
 | `HINDSIGHT_TENANT_API_KEY` | `openssl rand -hex 32` | Coolify stack env AND Hermes Railway env (`HINDSIGHT_API_KEY`) |
-| `GEMINI_API_KEY` | AI Studio | Coolify stack env |
+| `HINDSIGHT_LLM_API_KEY` | OpenRouter (dedicated Hindsight key) | Coolify stack env |
 | `OPENAI_API_KEY` | existing (on GBrain service) | Coolify stack env |
 | GCS HMAC key/secret | GCS console (§3.3) | Coolify → Storages |
 | `GH_TOKEN` (read-only, machine acct) | GitHub | Hermes Railway env (replace current) |
@@ -195,7 +195,7 @@ resources (project → database → Docker Compose service) via the Coolify API
 and connects the stack to the predefined network.
 
 Secrets (Coolify env, marked secret): `HINDSIGHT_DB_PASSWORD` and
-`HINDSIGHT_TENANT_API_KEY` (both `openssl rand -hex 32`), `GEMINI_API_KEY`
+`HINDSIGHT_TENANT_API_KEY` (both `openssl rand -hex 32`), `HINDSIGHT_LLM_API_KEY`
 (AI Studio key — Gemini API path, not Vertex), `OPENAI_API_KEY` (embeddings —
 same key already on the GBrain Railway service). If the Gemini model id is
 rejected, fall back to `gemini-2.5-flash`.
@@ -231,7 +231,7 @@ it. What it sets and why:
   2. Weight human review feedback above your own priors when they conflict.
   3. Anything touching Celery signatures, DB schema, billing, or the video
      pipeline's time-limit machinery is [NEEDS HUMAN DRIVER] — analysis only.
-- **Mental models** (auto-refreshing, `trigger_refresh_after_consolidation: true`):
+- **Mental models** (manual trigger, refreshed daily 05:15 UTC by the `hindsight-page-refresh` no-agent cron — `ops/hindsight/page_refresh.py`; auto-refresh after every consolidation was ~88% of the Hindsight LLM bill, 2026-10-02):
   - `refactor-landscape` — "What areas of the codebase have open proposals,
     recent findings, or known debt, and what is their status?"
   - `proposal-outcomes` — "Which proposals were implemented, which rejected,

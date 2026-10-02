@@ -11,10 +11,13 @@ services:
     restart: always
     environment:
       HINDSIGHT_API_DATABASE_URL: ${HINDSIGHT_API_DATABASE_URL}
-      # LLM for extraction/reflection — Gemini API (AI Studio key, non-product GCP project)
-      HINDSIGHT_API_LLM_PROVIDER: gemini
-      HINDSIGHT_API_LLM_API_KEY: ${GEMINI_API_KEY}
-      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-gemini-3-flash-preview}
+      # LLM for extraction/reflection — OpenRouter GLM-5.3 Flash since 2026-10-02 (was Gemini 3
+      # Flash on an AI Studio key: ~$1.8k/mo). Low reasoning effort: extraction and consolidation
+      # don't need deep thinking, and thinking tokens were ~70% of the Gemini output bill.
+      HINDSIGHT_API_LLM_PROVIDER: ${HINDSIGHT_LLM_PROVIDER:-openrouter}
+      HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_LLM_API_KEY}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-z-ai/glm-5.3-flash}
+      HINDSIGHT_API_LLM_REASONING_EFFORT: ${HINDSIGHT_LLM_REASONING_EFFORT:-low}
       # Inbound auth — REQUIRED (exposed cross-cloud)
       HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
       HINDSIGHT_API_TENANT_API_KEY: ${HINDSIGHT_TENANT_API_KEY}
