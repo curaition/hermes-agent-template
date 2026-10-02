@@ -13,8 +13,10 @@ def test_compose_shape():
     e = s["environment"]
     assert e["HINDSIGHT_API_TENANT_EXTENSION"] == "hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension"
     assert e["HINDSIGHT_API_TENANT_API_KEY"] == "${HINDSIGHT_TENANT_API_KEY}"
-    assert e["HINDSIGHT_API_LLM_PROVIDER"] == "gemini"
-    assert e["HINDSIGHT_API_LLM_MODEL"] == "${HINDSIGHT_LLM_MODEL:-gemini-3-flash-preview}"
+    assert e["HINDSIGHT_API_LLM_PROVIDER"] == "${HINDSIGHT_LLM_PROVIDER:-openrouter}"
+    assert e["HINDSIGHT_API_LLM_MODEL"] == "${HINDSIGHT_LLM_MODEL:-z-ai/glm-5.3-flash}"
+    assert e["HINDSIGHT_API_LLM_API_KEY"] == "${HINDSIGHT_LLM_API_KEY}"
+    assert e["HINDSIGHT_API_LLM_REASONING_EFFORT"] == "${HINDSIGHT_LLM_REASONING_EFFORT:-low}"
     assert e["HINDSIGHT_API_EMBEDDINGS_PROVIDER"] == "openai"
     assert e["HINDSIGHT_API_EMBEDDINGS_OPENAI_MODEL"] == "text-embedding-3-small"
     assert e["HINDSIGHT_API_DATABASE_URL"] == "${HINDSIGHT_API_DATABASE_URL}"

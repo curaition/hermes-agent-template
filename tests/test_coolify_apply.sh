@@ -6,7 +6,7 @@ export PATH="$here/fakebin:$PATH" FAKE_CURL_LOG="$tmp/log" FAKE_CURL_RESPONSES="
 mkdir -p "$FAKE_CURL_RESPONSES"
 export COOLIFY_URL=https://coolify.example COOLIFY_TOKEN=t HINDSIGHT_FQDN=hindsight.example \
   HINDSIGHT_VERSION=1.2.3 HINDSIGHT_DB_PASSWORD=dbpw HINDSIGHT_TENANT_API_KEY=tk \
-  GEMINI_API_KEY=g OPENAI_API_KEY=o HINDSIGHT_LLM_MODEL=gemini-3-flash-preview \
+  HINDSIGHT_LLM_API_KEY=g OPENAI_API_KEY=o HINDSIGHT_LLM_MODEL=z-ai/glm-5.3-flash \
   STATE_FILE="$tmp/state.env" POLL_INTERVAL=0
 fail() { echo "FAIL: $*" >&2; exit 1; }
 R="$FAKE_CURL_RESPONSES"
@@ -31,7 +31,7 @@ jq -e '.name=="hindsight" and .instant_deploy==false and .urls==[{"name":"hindsi
 # shellcheck disable=SC2016 # intentional: matching the literal, unexpanded ${HINDSIGHT_VERSION} placeholder in the compose file
 jq -r '.docker_compose_raw' <<<"$svcbody" | base64 -d | grep -q 'ghcr.io/vectorize-io/hindsight:${HINDSIGHT_VERSION}' || fail "compose not embedded"
 grep -q '^PATCH https://coolify.example/api/v1/services/svc1 .*connect_to_docker_network' "$FAKE_CURL_LOG" || fail "predefined network"
-for k in HINDSIGHT_VERSION HINDSIGHT_API_DATABASE_URL GEMINI_API_KEY HINDSIGHT_LLM_MODEL HINDSIGHT_TENANT_API_KEY OPENAI_API_KEY; do
+for k in HINDSIGHT_VERSION HINDSIGHT_API_DATABASE_URL HINDSIGHT_LLM_PROVIDER HINDSIGHT_LLM_API_KEY HINDSIGHT_LLM_MODEL HINDSIGHT_LLM_REASONING_EFFORT HINDSIGHT_TENANT_API_KEY OPENAI_API_KEY; do
   grep -q "^POST https://coolify.example/api/v1/services/svc1/envs .*\"key\":\"$k\"" "$FAKE_CURL_LOG" || fail "env $k"
 done
 # R1: coolify_apply.sh converts postgres:// -> postgresql:// (Hindsight expects postgresql://)

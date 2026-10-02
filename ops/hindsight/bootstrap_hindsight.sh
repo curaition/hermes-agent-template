@@ -92,7 +92,7 @@ havem="$(mcp "/mcp/${BANK}/" list_mental_models '{}' | jq -r '(.mental_models //
 add_model() { # id name query tags-json
   if grep -qx "$1" <<<"$havem"; then echo "  = $1"; return; fi
   mcp "/mcp/${BANK}/" create_mental_model "$(jq -cn --arg id "$1" --arg n "$2" --arg q "$3" --argjson t "$4" \
-    '{mental_model_id:$id,name:$n,source_query:$q,tags:$t,tags_match:"any",trigger_refresh_after_consolidation:true}')" >/dev/null; echo "  + $1"
+    '{mental_model_id:$id,name:$n,source_query:$q,tags:$t,tags_match:"any",trigger_refresh_after_consolidation:false}')" >/dev/null; echo "  + $1"
 }
 add_model refactor-landscape "Refactor Landscape" "What areas of the codebase have open proposals, recent findings, or known technical debt, and what is the current status of each?" '["proposals","findings"]'
 add_model proposal-outcomes "Proposal Outcomes" "Which proposals were implemented, which were rejected or went stale, and what patterns distinguish accepted proposals from rejected ones?" '["proposals","feedback"]'

@@ -88,7 +88,7 @@ Env (Coolify, marked secret where noted):
 | `HINDSIGHT_API_DATABASE_URL` | from the DB resource's `internal_db_url` (set by `coolify_apply.sh`) | yes |
 | `HINDSIGHT_TENANT_API_KEY` | `openssl rand -hex 32` | yes |
 | `HINDSIGHT_LLM_MODEL` | `gemini-3-flash-preview` | no |
-| `GEMINI_API_KEY` | AI Studio key, non-product GCP project | yes |
+| `HINDSIGHT_LLM_API_KEY` | OpenRouter key dedicated to Hindsight (GLM-5.3 Flash; was a Gemini AI Studio key until 2026-10-02) | yes |
 | `OPENAI_API_KEY` | existing (same as GBrain service) | yes |
 
 Interface exposed: `POST /mcp/` (multi-bank), `POST /mcp/hermes-agent/`
@@ -269,7 +269,7 @@ Automated where possible: `ops/hindsight/verify.sh` runs 1 (nmap), 2, 4, 5
 |---|---|---|
 | `HINDSIGHT_DB_PASSWORD` | `openssl rand -hex 32` | Coolify env |
 | `HINDSIGHT_TENANT_API_KEY` | `openssl rand -hex 32` | Coolify env; Railway Hermes as `HINDSIGHT_API_KEY` |
-| `GEMINI_API_KEY` | AI Studio, non-product GCP project (Rick) | Coolify env |
+| `HINDSIGHT_LLM_API_KEY` | OpenRouter, dedicated Hindsight key (Rick) | Coolify env |
 | `OPENAI_API_KEY` | existing (GBrain service) | Coolify env |
 | GCS HMAC key/secret | GCS console, bucket-scoped SA (Rick or agent with role) | Coolify → Storages |
 | `GH_TOKEN` | GitHub fine-grained PAT, read-only | Railway Hermes (replaces current) |
