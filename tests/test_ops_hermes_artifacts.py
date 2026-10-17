@@ -368,3 +368,14 @@ def test_cron_install_creates_pilots_and_release_paused_in_dry_run_off_the_workd
     import re
     for sched in re.findall(r'mk_rendered hermes-owner-\S+\s+"(\d+) (\d+) \* \* \*"', s):
         assert sched[1] not in {"2", "3", "4", "6", "18"}
+
+
+def test_release_prompt_never_writes_the_train_body_and_gates_on_it_being_current():
+    # CUR-1956: the hourly body rewrite went stale between runs; train #3544 shipped
+    # #3545/#3546/#3548 unlisted. train-body.yml in curaition/curaition is the single writer.
+    p = _render("release", "live")
+    assert "gh pr edit <n> --body-file" not in p and "--body-file <file>" not in p
+    assert "Never `gh pr edit --body`" in p
+    assert "train-body.yml" in p and "train body stale" in p
+    assert "train body current (step 2); CI summary green" in p
+
